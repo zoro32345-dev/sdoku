@@ -15,6 +15,7 @@
   body{margin:0;font-family:'Jua',system-ui,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
   button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--radius)}
   [hidden]{display:none!important}
+  .dot{display:inline-block;width:20px;height:20px;border-radius:50%;flex-shrink:0;vertical-align:-3px}
 
   /* ---------- 시작 화면 ---------- */
   #setup{max-width:720px;margin:0 auto;padding:28px 16px 40px}
@@ -26,7 +27,14 @@
   .seg{display:flex;gap:8px;flex-wrap:wrap}
   .seg button{flex:1;min-width:90px;padding:14px 10px;font-size:22px;background:#efe9df;color:var(--ink)}
   .seg button.on{background:var(--ink);color:#fff}
-  .names{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .count{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .count .step{width:60px;height:60px;font-size:32px;background:#efe9df;color:var(--ink)}
+  .count input{width:110px;height:60px;font-family:inherit;font-size:34px;text-align:center;border:3px solid var(--ink);border-radius:var(--radius);background:#fff}
+  .count .unit{font-size:24px}
+  .count .quick{display:flex;gap:8px;margin-left:auto}
+  .count .quick button{padding:12px 14px;font-size:19px;background:#efe9df;color:var(--ink)}
+  .info{margin:12px 0 0;color:var(--muted);font-size:18px}
+  .names{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
   .names label{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;font-size:18px}
   .names input{flex:1;min-width:0;font-family:inherit;font-size:20px;border:2px solid transparent;border-radius:10px;padding:8px;background:#fff}
   .rules{margin:0;padding-left:22px;font-size:19px;line-height:1.7}
@@ -36,44 +44,44 @@
   .loading{text-align:center;font-size:22px;color:var(--muted);margin-top:12px}
 
   /* ---------- 게임 화면 ---------- */
-  #game{display:flex;gap:24px;padding:16px;justify-content:center;align-items:center;min-height:100vh}
-  .board{display:grid;grid-template-columns:repeat(9,1fr);width:min(92vh,60vw);aspect-ratio:1;border:4px solid var(--thick);border-radius:10px;overflow:hidden;background:var(--thick);container-type:inline-size;flex-shrink:0}
-  .cell{display:flex;align-items:center;justify-content:center;font-size:7cqw;background:var(--neutral);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;user-select:none;transition:background .25s}
-  .cell.br{border-right:3px solid var(--thick)}
-  .cell.bb{border-bottom:3px solid var(--thick)}
+  #game{display:flex;gap:20px;padding:14px;justify-content:center;align-items:center;min-height:100vh}
+  .board{--k:1;--bw:3px;display:grid;width:min(94vh,62vw);aspect-ratio:1;border:4px solid var(--thick);border-radius:10px;overflow:hidden;background:var(--thick);container-type:inline-size;flex-shrink:0}
+  .cell{display:flex;align-items:center;justify-content:center;font-size:calc(7cqw / var(--k));background:var(--neutral);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;user-select:none;transition:background .25s;min-width:0;min-height:0}
+  .cell.br{border-right:var(--bw) solid var(--thick)}
+  .cell.bb{border-bottom:var(--bw) solid var(--thick)}
+  .cell.br9{border-right:5px solid #000}
+  .cell.bb9{border-bottom:5px solid #000}
   .cell.given{color:#3a342c}
   .cell.solved{color:var(--pc)}
-  .cell.base::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.0) 0 6px,rgba(255,255,255,.35) 6px 9px);pointer-events:none}
+  .cell.base::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,0) 0 6px,rgba(255,255,255,.35) 6px 9px);pointer-events:none}
+  .tag{position:absolute;top:1px;left:1px;z-index:3;font-size:max(10px,calc(2.6cqw / var(--k)));line-height:1.25;padding:0 .3em;border-radius:.4em;background:var(--pc);color:#fff;pointer-events:none}
   .cell.legal{cursor:pointer}
-  .cell.legal::before{content:'';position:absolute;inset:3px;border:3px dashed var(--cur);border-radius:8px;opacity:.75}
-  .cell.legal:hover::before{opacity:1;background:rgba(255,255,255,.4)}
-  .cell.sel::before{content:'';position:absolute;inset:2px;border:5px solid var(--cur);border-radius:8px;opacity:1;background:rgba(255,255,255,.55);animation:pulse 1s infinite}
-  @keyframes pulse{50%{transform:scale(.92)}}
+  .cell.legal::before{content:'';position:absolute;inset:8%;border:max(2px,calc(.5cqw / var(--k))) dashed var(--cur);border-radius:20%;opacity:.8}
+  .cell.legal:hover::before{opacity:1;background:rgba(255,255,255,.45)}
+  .cell.sel::before{content:'';position:absolute;inset:4%;border:max(3px,calc(.9cqw / var(--k))) solid var(--cur);border-radius:20%;background:rgba(255,255,255,.6);animation:pulse 1s infinite}
+  @keyframes pulse{50%{transform:scale(.9)}}
   .cell.pop{animation:pop .5s}
-  @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.25);z-index:2}100%{transform:scale(1)}}
+  @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.35);z-index:4}100%{transform:scale(1)}}
   .cell.wrong{animation:shake .45s;background:#ffb3b3!important}
-  @keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+  @keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
 
-  .side{width:min(420px,34vw);display:flex;flex-direction:column;gap:14px}
-  .turn{border-radius:18px;padding:14px 18px;color:#fff;background:var(--cur);font-size:30px;text-align:center}
-  .turn small{display:block;font-size:17px;opacity:.9}
-  .timer{height:12px;background:rgba(255,255,255,.35);border-radius:6px;margin-top:10px;overflow:hidden}
+  .side{width:min(420px,34vw);display:flex;flex-direction:column;gap:12px}
+  .turn{border-radius:18px;padding:12px 18px;color:#fff;background:var(--cur);font-size:30px;text-align:center}
+  .turn small{display:block;font-size:17px;opacity:.95}
+  .timer{height:12px;background:rgba(255,255,255,.35);border-radius:6px;margin-top:8px;overflow:hidden}
   .timer i{display:block;height:100%;background:#fff;width:100%}
-  .scores{background:var(--card);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-  .score{display:flex;align-items:center;gap:10px;font-size:22px;padding:4px 6px;border-radius:10px}
-  .score.now{background:#f3ede3}
-  .score .dot{width:22px;height:22px;border-radius:50%;flex-shrink:0}
-  .score .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .score .bar{flex:1.4;height:14px;background:#eee7dc;border-radius:7px;overflow:hidden}
-  .score .bar i{display:block;height:100%;transition:width .4s}
-  .score .n{width:42px;text-align:right}
+  .scores{background:var(--card);border-radius:18px;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;max-height:30vh;overflow:auto}
+  .chip{display:flex;align-items:center;gap:6px;font-size:18px;padding:5px 8px;border-radius:10px;background:#f5efe5;border:3px solid transparent;white-space:nowrap;overflow:hidden}
+  .chip .dot{width:14px;height:14px}
+  .chip .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
+  .chip.now{border-color:var(--cur);background:#fff}
   .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .pad button{aspect-ratio:1.5;font-size:clamp(26px,3.4vw,40px);background:#fff;color:var(--ink);box-shadow:0 4px 0 #d8d0c3}
+  .pad button{aspect-ratio:1.7;font-size:clamp(26px,3.2vw,40px);background:#fff;color:var(--ink);box-shadow:0 4px 0 #d8d0c3}
   .pad button:active{transform:translateY(3px);box-shadow:0 1px 0 #d8d0c3}
   .pad.off button{opacity:.35;pointer-events:none}
   .hint{text-align:center;font-size:19px;color:var(--muted);min-height:26px;margin:0}
-  .row{display:flex;gap:10px}
-  .row button{flex:1;padding:12px;font-size:19px;background:#efe9df;color:var(--ink)}
+  .row{display:flex;gap:8px}
+  .row button{flex:1;padding:12px 6px;font-size:18px;background:#efe9df;color:var(--ink)}
   .left{font-size:18px;color:var(--muted);text-align:center}
 
   .toast{position:fixed;left:50%;top:22px;transform:translateX(-50%) translateY(calc(-100% - 40px));background:var(--ink);color:#fff;font-size:26px;padding:14px 26px;border-radius:999px;transition:transform .3s;z-index:20;max-width:92vw;text-align:center}
@@ -81,20 +89,20 @@
 
   /* ---------- 끝 화면 ---------- */
   #end{position:fixed;inset:0;background:rgba(40,34,26,.6);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
-  .endbox{background:var(--card);border-radius:24px;padding:28px 26px;width:min(520px,100%);text-align:center}
-  .crown{font-size:80px;line-height:1;animation:bounce 1.2s infinite}
+  .endbox{background:var(--card);border-radius:24px;padding:24px 22px;width:min(560px,100%);max-height:94vh;display:flex;flex-direction:column;text-align:center}
+  .crown{font-size:72px;line-height:1;animation:bounce 1.2s infinite}
   @keyframes bounce{50%{transform:translateY(-10px)}}
-  .endbox h2{font-size:38px;margin:8px 0 18px;font-weight:normal}
-  .rank{display:flex;align-items:center;gap:12px;font-size:24px;padding:10px 14px;border-radius:14px;margin-bottom:8px;background:#f5efe5;text-align:left}
-  .rank b{font-weight:normal;width:34px}
-  .rank .dot{width:22px;height:22px;border-radius:50%}
+  .endbox h2{font-size:34px;margin:6px 0 14px;font-weight:normal}
+  #ranks{overflow:auto;min-height:0}
+  .rank{display:flex;align-items:center;gap:12px;font-size:22px;padding:8px 14px;border-radius:14px;margin-bottom:6px;background:#f5efe5;text-align:left}
+  .rank b{font-weight:normal;width:44px}
   .rank span.nm{flex:1}
-  .endbox .start{margin-top:16px;font-size:26px;padding:16px}
+  .endbox .start{margin-top:14px;font-size:26px;padding:16px;flex-shrink:0}
 
   @media (max-width:900px), (orientation:portrait){
     #game{flex-direction:column;justify-content:flex-start}
-    .board{width:min(94vw,62vh)}
-    .side{width:min(94vw,560px)}
+    .board{width:min(96vw,62vh)}
+    .side{width:min(96vw,620px)}
     .pad{grid-template-columns:repeat(9,1fr);gap:6px}
     .pad button{aspect-ratio:auto;padding:12px 0;font-size:26px}
   }
@@ -107,11 +115,16 @@
   <p class="sub">스도쿠를 풀어서 상대 땅을 빼앗아라!</p>
 
   <div class="card">
-    <h2>몇 명(모둠)이 할까요?</h2>
-    <div class="seg" id="segPlayers">
-      <button data-v="2" class="on">2명</button><button data-v="3">3명</button><button data-v="4">4명</button>
+    <h2>몇 명이 할까요?</h2>
+    <div class="count">
+      <button class="step" id="minus">−</button>
+      <input id="nInput" type="number" min="2" max="100" value="18" inputmode="numeric">
+      <button class="step" id="plus">+</button>
+      <span class="unit">명</span>
+      <div class="quick"><button data-v="2">2명</button><button data-v="4">4명</button><button data-v="18">18명</button></div>
     </div>
-    <div class="names" id="names" style="margin-top:14px"></div>
+    <p class="info" id="mapInfo"></p>
+    <div class="names" id="names"></div>
   </div>
 
   <div class="card">
@@ -131,13 +144,14 @@
   <div class="card">
     <h2>규칙</h2>
     <ul class="rules">
-      <li>구석의 줄무늬 3×3이 내 <b>본진</b>이에요. 본진은 절대 뺏기지 않아요.</li>
+      <li>번호표가 붙은 줄무늬 3×3이 내 <b>본진</b>이에요. 본진은 절대 뺏기지 않아요.</li>
       <li>내 색 칸은 내 <b>영토</b>, 빈칸은 풀어야 할 <b>문제</b>예요.</li>
       <li>내 차례에 빈칸 하나를 골라 숫자를 넣어요. (점선 칸만 고를 수 있어요)</li>
       <li>⚔️ <b>공격</b>: 내 땅과 맞닿은 상대·회색 빈칸을 맞히면 내 땅이 돼요.</li>
       <li>🛡️ <b>수비</b>: 내 영토 빈칸을 맞히면 확정! 다시는 못 뺏겨요.</li>
       <li>❌ 틀리거나 시간이 끝나면 차례가 넘어가요.</li>
-      <li>빈칸이 다 풀렸을 때 땅이 가장 많은 사람이 <b>스도쿠왕</b>!</li>
+      <li>인원이 많으면 스도쿠 판 여러 장이 이어진 큰 지도가 돼요. 굵은 검은 선이 판의 경계예요.</li>
+      <li>빈칸이 다 풀리거나 선생님이 끝내면, 땅이 가장 많은 사람이 <b>스도쿠왕</b>!</li>
     </ul>
   </div>
 
@@ -155,6 +169,7 @@
     <div class="left" id="left"></div>
     <div class="row">
       <button id="btnPass">차례 넘기기</button>
+      <button id="btnStop">여기서 끝내기</button>
       <button id="btnQuit">처음으로</button>
     </div>
   </div>
@@ -173,74 +188,96 @@
 
 <script>
 /* ===== 기본 설정 ===== */
-const PLAYERS = [
-  {color:'빨강', main:'#e5484d', tint:'#fbd5d5', base:'#f29a9c', emoji:'🔴'},
-  {color:'파랑', main:'#3b82f6', tint:'#d3e3fd', base:'#93b8f7', emoji:'🔵'},
-  {color:'초록', main:'#16a34a', tint:'#cdeed8', base:'#86cf9f', emoji:'🟢'},
-  {color:'주황', main:'#f59e0b', tint:'#fde6bd', base:'#f7c562', emoji:'🟠'},
+const MIN_N = 2, MAX_N = 100;
+// 4명까지는 잘 구별되는 기본 4색, 그 이상은 색상환을 고르게 나눠 자동으로 만든다
+const BASIC = [
+  {main:'#e5484d', tint:'#fbd5d5', base:'#f29a9c'},
+  {main:'#3b82f6', tint:'#d3e3fd', base:'#93b8f7'},
+  {main:'#16a34a', tint:'#cdeed8', base:'#86cf9f'},
+  {main:'#f59e0b', tint:'#fde6bd', base:'#f7c562'},
 ];
-// 본진(3×3) 왼쪽 위 좌표: 2명이면 대각선으로 마주 보게
-const CORNERS = [[0,0],[6,6],[0,6],[6,0]];
-// 본진 밖에 미리 보여 줄 숫자 개수 (정답이 하나뿐이 되도록 이보다 많아질 수 있음)
-const GIVENS = {easy:28, normal:20, hard:12};
+function makeColors(n){
+  if(n<=4) return BASIC.slice(0,n);
+  return Array.from({length:n},(_,p)=>{
+    const h = Math.round((p*137.508 + 8) % 360);
+    const l = p%2 ? 38 : 46; // 이웃 번호끼리 밝기도 살짝 다르게
+    return {main:`hsl(${h} 70% ${l}%)`, tint:`hsl(${h} 80% 89%)`, base:`hsl(${h} 70% 73%)`};
+  });
+}
+// 본진 밖에 미리 보여 줄 숫자 비율 (정답이 하나뿐이 되도록 이보다 많아질 수 있음)
+const KEEP = {easy:0.45, normal:0.32, hard:0.2};
 
-const cfg = {n:2, diff:'easy', time:30, names:['1모둠','2모둠','3모둠','4모둠']};
+const cfg = {n:18, diff:'easy', time:30, names:[]};
 let S = null;      // 게임 상태
 let timerId = null;
-
 const $ = id => document.getElementById(id);
+const nm = p => cfg.names[p] || `${p+1}번`;
+
+// 인원에 맞는 지도 크기: 9×9 판을 K×K장 이어 붙임. 3×3 칸 수가 인원의 2배 이상이 되게.
+const blocksFor = n => { let k=1; while((3*k)*(3*k) < 2*n) k++; return k; };
 
 /* ===== 시작 화면 ===== */
+function setN(v){
+  v = Math.max(MIN_N, Math.min(MAX_N, Math.round(Number(v)||MIN_N)));
+  cfg.n = v; $('nInput').value = v;
+  const k = blocksFor(v);
+  $('mapInfo').textContent = `지도 크기: ${9*k}×${9*k}칸 (스도쿠 판 ${k*k}장)` + (v>8 ? ' · 이름은 번호로 표시돼요' : '');
+  drawNames();
+}
+$('minus').onclick = ()=>setN(cfg.n-1);
+$('plus').onclick  = ()=>setN(cfg.n+1);
+$('nInput').addEventListener('change', e=>setN(e.target.value));
+document.querySelector('.quick').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setN(b.dataset.v); });
+
 function seg(id, key, cast){
   $(id).addEventListener('click', e=>{
     const b = e.target.closest('button'); if(!b) return;
     [...$(id).children].forEach(x=>x.classList.toggle('on', x===b));
     cfg[key] = cast(b.dataset.v);
-    if(key==='n') drawNames();
   });
 }
-seg('segPlayers','n',Number); seg('segDiff','diff',String); seg('segTime','time',Number);
+seg('segDiff','diff',String); seg('segTime','time',Number);
 
+// 8명 이하일 때만 이름을 바꿀 수 있게 (많으면 번호로)
 function drawNames(){
   $('names').innerHTML = '';
+  if(cfg.n>8){ cfg.names=[]; return; }
+  const cols = makeColors(cfg.n);
   for(let p=0;p<cfg.n;p++){
-    const P = PLAYERS[p];
     const lab = document.createElement('label');
-    lab.style.background = P.tint;
-    lab.innerHTML = `<span>${P.emoji}</span>`;
+    lab.style.background = cols[p].tint;
+    lab.innerHTML = `<span class="dot" style="background:${cols[p].main}"></span>`;
     const inp = document.createElement('input');
-    inp.value = cfg.names[p]; inp.maxLength = 8;
-    inp.addEventListener('input', ()=>cfg.names[p] = inp.value.trim() || `${p+1}모둠`);
+    inp.value = cfg.names[p] || `${p+1}번`; inp.maxLength = 8;
+    cfg.names[p] = inp.value;
+    inp.addEventListener('input', ()=>cfg.names[p] = inp.value.trim() || `${p+1}번`);
     lab.appendChild(inp);
     $('names').appendChild(lab);
   }
 }
-drawNames();
+setN(cfg.n);
 
 $('btnStart').onclick = ()=>{
-  $('loading').hidden = false;
-  setTimeout(()=>{ newGame(); $('loading').hidden = true; }, 30);
+  $('loading').hidden = false; $('btnStart').disabled = true;
+  setTimeout(()=>{ newGame(); $('loading').hidden = true; $('btnStart').disabled = false; }, 30);
 };
 $('btnAgain').onclick = ()=>{ $('end').hidden = true; $('game').hidden = true; $('setup').hidden = false; };
 $('btnQuit').onclick = ()=>{
   if(!confirm('게임을 그만두고 처음 화면으로 갈까요?')) return;
   stopTimer(); $('game').hidden = true; $('setup').hidden = false;
 };
+$('btnStop').onclick = ()=>{ if(S && !S.over && confirm('지금 땅 개수로 스도쿠왕을 정할까요?')) finish(); };
 $('btnPass').onclick = ()=>{ if(S && !S.over){ toast(`⏭️ ${nm(S.cur)} 차례를 넘겼어요`); nextTurn(); } };
 
-/* ===== 스도쿠 만들기 ===== */
-const RC = i => [Math.floor(i/9), i%9];
-const BOX = i => { const [r,c]=RC(i); return Math.floor(r/3)*3+Math.floor(c/3); };
-
+/* ===== 스도쿠 한 판(9×9) 만들기 ===== */
 function candMask(g, i){
-  const [r,c] = RC(i); let used = 0;
+  const r=Math.floor(i/9), c=i%9; let used = 0;
   for(let k=0;k<9;k++){ used |= 1<<g[r*9+k]; used |= 1<<g[k*9+c]; }
-  const br = r-r%3, bc = c-c%3;
+  const br=r-r%3, bc=c-c%3;
   for(let a=0;a<3;a++) for(let b=0;b<3;b++) used |= 1<<g[(br+a)*9+bc+b];
-  return (~used) & 0x3FE; // 1~9
+  return (~used) & 0x3FE;
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
-
 function fillFull(g){
   const i = g.indexOf(0); if(i<0) return true;
   const m = candMask(g,i);
@@ -250,7 +287,7 @@ function fillFull(g){
   g[i]=0; return false;
 }
 // 답의 개수를 셈 (2개가 되면 멈춤)
-function countSol(g, limit=2){
+function countSol(g){
   let best=-1, bestM=0, bestCnt=10;
   for(let i=0;i<81;i++){
     if(g[i]) continue;
@@ -262,50 +299,89 @@ function countSol(g, limit=2){
   if(best<0) return 1;
   let total=0;
   for(let d=1;d<=9;d++){
-    if(bestM&(1<<d)){ g[best]=d; total+=countSol(g,limit); if(total>=limit) break; }
+    if(bestM&(1<<d)){ g[best]=d; total+=countSol(g); if(total>=2) break; }
   }
   g[best]=0; return total;
+}
+// 한 판 문제 만들기. keepLocal: 꼭 보여 줄 칸(본진). 결과: {sol, puz}
+function makePuzzle(keepLocal){
+  const sol = new Array(81).fill(0); fillFull(sol);
+  const g = sol.slice();
+  const others = shuffle([...Array(81).keys()].filter(i=>!keepLocal[i]));
+  const target = Math.round(others.length*KEEP[cfg.diff]);
+  let shown = others.length;
+  for(const i of others){
+    if(shown <= target) break;
+    const t=g[i]; g[i]=0;
+    if(countSol(g.slice())===1) shown--; else g[i]=t;
+  }
+  return {sol, puz:g};
+}
+
+/* ===== 본진 자리 정하기 ===== */
+// 3×3 칸들을 체스판처럼 번갈아 고른 후보 중에서, 서로 최대한 멀리 떨어지게 n개를 고른다
+function placeBases(n, B){
+  const cands = [];
+  for(let by=0;by<B;by++) for(let bx=0;bx<B;bx++) if((bx+by)%2===0) cands.push([bx,by]);
+  const chosen=[cands[0]], used=new Set([0]);
+  const dist=(a,b)=>Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1]);
+  while(chosen.length<n){
+    let best=-1, bestD=-1, bestSum=-1;
+    cands.forEach((c,ci)=>{
+      if(used.has(ci)) return;
+      let md=1e9, sum=0; for(const s of chosen){ const d=dist(c,s); md=Math.min(md,d); sum+=d; }
+      if(md>bestD || (md===bestD && sum>bestSum)){ best=ci; bestD=md; bestSum=sum; }
+    });
+    used.add(best); chosen.push(cands[best]);
+  }
+  // 번호는 왼쪽 위부터 읽는 순서대로
+  return chosen.sort((a,b)=>a[1]-b[1] || a[0]-b[0]);
 }
 
 /* ===== 새 게임 ===== */
 function newGame(){
-  const n = cfg.n;
-  const sol = new Array(81).fill(0); fillFull(sol);
+  const n=cfg.n, K=blocksFor(n), B=3*K, W=9*K, C=W*W;
+  const colors = makeColors(n);
+  const bases = placeBases(n, B);
+  const owner = new Array(C).fill(-1), base = new Array(C).fill(false), tagAt = new Map();
 
-  const owner = new Array(81).fill(-1), base = new Array(81).fill(false);
-  // 본진
-  for(let p=0;p<n;p++){
-    const [r0,c0] = CORNERS[p];
-    for(let a=0;a<3;a++) for(let b=0;b<3;b++){ const i=(r0+a)*9+c0+b; owner[i]=p; base[i]=true; }
-  }
-  // 영토: 가장 가까운 본진 주인 (거리가 같으면 중립)
-  for(let i=0;i<81;i++){
+  bases.forEach(([bx,by],p)=>{
+    for(let a=0;a<3;a++) for(let b=0;b<3;b++){ const i=(by*3+a)*W + bx*3+b; owner[i]=p; base[i]=true; }
+    tagAt.set((by*3)*W + bx*3, p);
+  });
+  // 영토: 가장 가까운 본진 주인 (거리가 같거나 너무 멀면 중립)
+  const REACH = 2, dist = new Array(C).fill(0);
+  for(let i=0;i<C;i++){
     if(base[i]) continue;
-    const [r,c] = RC(i); let best=99, who=-1;
-    for(let p=0;p<n;p++){
-      const [r0,c0] = CORNERS[p];
+    const r=Math.floor(i/W), c=i%W; let best=1e9, who=-1;
+    bases.forEach(([bx,by],p)=>{
+      const r0=by*3, c0=bx*3;
       const d = Math.max(0,r0-r,r-(r0+2)) + Math.max(0,c0-c,c-(c0+2));
       if(d<best){ best=d; who=p; } else if(d===best) who=-1;
-    }
-    owner[i]=who;
+    });
+    // 본진에서 2칸 넘게 떨어진 곳은 중립: 인원이 애매해도 시작 땅이 고르게
+    owner[i] = best<=REACH ? who : -1;
+    dist[i] = best;
   }
-  // 빈칸 뚫기: 본진은 그대로 두고, 정답이 하나뿐인 동안만 뺀다
-  const g = sol.slice();
-  const others = shuffle([...Array(81).keys()].filter(i=>!base[i]));
-  let shown = others.length;
-  for(const i of others){
-    if(shown <= GIVENS[cfg.diff]) break;
-    const t=g[i]; g[i]=0;
-    if(countSol(g.slice())===1) shown--; else g[i]=t;
+  // 모두 같은 칸 수로 시작: 가장 적은 사람에 맞춰, 많은 사람은 먼 칸부터 중립으로 돌린다
+  const mine = Array.from({length:n},()=>[]);
+  for(let i=0;i<C;i++) if(owner[i]>=0 && !base[i]) mine[owner[i]].push(i);
+  const fair = Math.min(...mine.map(a=>a.length));
+  mine.forEach(list=>{
+    shuffle(list).sort((a,b)=>dist[b]-dist[a]);
+    list.slice(0, list.length-fair).forEach(i=>owner[i]=-1);
+  });
+  // 9×9 판마다 따로 문제를 만든다
+  const sol=new Array(C), shown=new Array(C);
+  for(let BY=0;BY<K;BY++) for(let BX=0;BX<K;BX++){
+    const g2l = (r,c)=>(BY*9+r)*W + BX*9+c;
+    const keep = Array.from({length:81},(_,j)=>base[g2l(Math.floor(j/9), j%9)]);
+    const {sol:s, puz} = makePuzzle(keep);
+    for(let j=0;j<81;j++){ const i=g2l(Math.floor(j/9), j%9); sol[i]=s[j]; shown[i]=puz[j]!==0; }
   }
 
-  S = {
-    n, sol, owner, base,
-    shown: g.map(v=>v!==0),
-    given: g.map(v=>v!==0),
-    cur: 0, sel: -1, over:false,
-    stat: Array.from({length:n},()=>({atk:0,def:0,miss:0})),
-  };
+  S = { n, K, W, C, colors, sol, owner, base, tagAt, shown, given: shown.slice(),
+        cur:0, sel:-1, over:false, stat: Array.from({length:n},()=>({atk:0,def:0,miss:0})) };
   buildBoard(); buildPad();
   $('setup').hidden = true; $('end').hidden = true; $('game').hidden = false;
   startTurn();
@@ -313,64 +389,66 @@ function newGame(){
 
 /* ===== 판 그리기 ===== */
 function buildBoard(){
-  const bd = $('board'); bd.innerHTML='';
-  for(let i=0;i<81;i++){
-    const d = document.createElement('div');
-    const [r,c] = RC(i);
-    d.className='cell'; if(c===2||c===5) d.classList.add('br'); if(r===2||r===5) d.classList.add('bb');
-    if(c===8) d.style.borderRight='none'; if(r===8) d.style.borderBottom='none';
+  const bd=$('board'), W=S.W; bd.innerHTML='';
+  bd.style.gridTemplateColumns = `repeat(${W},1fr)`;
+  bd.style.setProperty('--k', S.K);
+  bd.style.setProperty('--bw', S.K===1 ? '3px' : '2px');
+  const frag = document.createDocumentFragment();
+  for(let i=0;i<S.C;i++){
+    const d=document.createElement('div'), r=Math.floor(i/W), c=i%W;
+    d.className='cell';
+    if(c<W-1){ if(c%9===8) d.classList.add('br9'); else if(c%3===2) d.classList.add('br'); } else d.style.borderRight='none';
+    if(r<W-1){ if(r%9===8) d.classList.add('bb9'); else if(r%3===2) d.classList.add('bb'); } else d.style.borderBottom='none';
+    d.innerHTML = '<span class="v"></span>';
+    if(S.tagAt.has(i)){ const p=S.tagAt.get(i); d.insertAdjacentHTML('beforeend', `<span class="tag" style="--pc:${S.colors[p].main}">${p+1}</span>`); }
     d.onclick = ()=>pick(i);
-    bd.appendChild(d);
+    frag.appendChild(d);
   }
+  bd.appendChild(frag);
 }
 function buildPad(){
   const pad=$('pad'); pad.innerHTML='';
   for(let d=1;d<=9;d++){ const b=document.createElement('button'); b.textContent=d; b.onclick=()=>answer(d); pad.appendChild(b); }
 }
 
-const nm = p => cfg.names[p];
-const neighbors = i => { const [r,c]=RC(i), o=[]; if(r>0)o.push(i-9); if(r<8)o.push(i+9); if(c>0)o.push(i-1); if(c<8)o.push(i+1); return o; };
+const neighbors = i => { const W=S.W, r=Math.floor(i/W), c=i%W, o=[]; if(r>0)o.push(i-W); if(r<W-1)o.push(i+W); if(c>0)o.push(i-1); if(c<W-1)o.push(i+1); return o; };
 function legal(p,i){
   if(S.shown[i]) return false;
   if(S.owner[i]===p) return true;
   return neighbors(i).some(j=>S.owner[j]===p);
 }
-const hasMove = p => S.owner.some((_,i)=>legal(p,i));
+function hasMove(p){ for(let i=0;i<S.C;i++) if(legal(p,i)) return true; return false; }
 const blanks = () => S.shown.filter(x=>!x).length;
 const counts = () => { const c=new Array(S.n).fill(0); S.owner.forEach(o=>{ if(o>=0) c[o]++; }); return c; };
+const esc = s => String(s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+const dotHtml = p => `<span class="dot" style="background:${S.colors[p].main}"></span>`;
 
 function render(){
-  const cells = $('board').children, P = PLAYERS[S.cur];
+  const cells=$('board').children, P=S.colors[S.cur];
   document.documentElement.style.setProperty('--cur', P.main);
-  for(let i=0;i<81;i++){
+  for(let i=0;i<S.C;i++){
     const d=cells[i], o=S.owner[i];
-    d.style.background = o<0 ? '' : (S.base[i] ? PLAYERS[o].base : PLAYERS[o].tint);
-    d.style.setProperty('--pc', o<0 ? '#3a342c' : PLAYERS[o].main);
-    d.textContent = S.shown[i] ? S.sol[i] : '';
+    d.style.background = o<0 ? '' : (S.base[i] ? S.colors[o].base : S.colors[o].tint);
+    d.style.setProperty('--pc', o<0 ? '#3a342c' : S.colors[o].main);
+    d.firstChild.textContent = S.shown[i] ? S.sol[i] : '';
     d.classList.toggle('base', S.base[i]);
     d.classList.toggle('given', S.given[i]);
     d.classList.toggle('solved', S.shown[i] && !S.given[i]);
-    d.classList.toggle('legal', !S.over && legal(S.cur,i) && i!==S.sel);
+    d.classList.toggle('legal', !S.over && i!==S.sel && legal(S.cur,i));
     d.classList.toggle('sel', i===S.sel);
   }
-  $('turnName').textContent = `${P.emoji} ${nm(S.cur)} 차례`;
+  $('turnName').innerHTML = `${esc(nm(S.cur))} 차례`;
   $('pad').classList.toggle('off', S.sel<0);
   if(S.sel<0) $('hint').textContent = '점선 칸 하나를 골라요';
   else {
     const o=S.owner[S.sel];
     $('hint').textContent = o===S.cur ? '🛡️ 수비! 알맞은 숫자를 눌러요' : (o<0 ? '⚔️ 빈 땅 차지! 숫자를 눌러요' : `⚔️ ${nm(o)} 땅 공격! 숫자를 눌러요`);
   }
-  const c = counts(), max = Math.max(...c, 1);
-  $('scores').innerHTML = c.map((v,p)=>`
-    <div class="score ${p===S.cur?'now':''}">
-      <span class="dot" style="background:${PLAYERS[p].main}"></span>
-      <span class="nm">${esc(nm(p))}</span>
-      <span class="bar"><i style="width:${v/81*100}%;background:${PLAYERS[p].main}"></i></span>
-      <span class="n">${v}</span>
-    </div>`).join('');
+  const c = counts();
+  $('scores').innerHTML = c.map((v,p)=>`<div class="chip ${p===S.cur?'now':''}" data-p="${p}">${dotHtml(p)}<span class="nm">${esc(nm(p))}</span><span>${v}</span></div>`).join('');
+  const now = $('scores').querySelector('.now'); if(now) now.scrollIntoView({block:'nearest'});
   $('left').textContent = `남은 문제 ${blanks()}칸`;
 }
-const esc = s => s.replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
 
 /* ===== 차례 진행 ===== */
 function startTurn(){
@@ -380,6 +458,7 @@ function startTurn(){
 }
 function nextTurn(){
   stopTimer();
+  if(S.over) return;
   if(blanks()===0) return finish();
   for(let k=1;k<=S.n;k++){
     const p=(S.cur+k)%S.n;
@@ -429,14 +508,16 @@ function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
 function finish(){
   S.over=true; stopTimer(); render();
   const c=counts();
-  const order=[...Array(S.n).keys()].sort((a,b)=>c[b]-c[a]);
+  const order=[...Array(S.n).keys()].sort((a,b)=>c[b]-c[a] || a-b);
   const top=c[order[0]], kings=order.filter(p=>c[p]===top);
   $('endTitle').textContent = kings.length>1 ? `공동 스도쿠왕: ${kings.map(nm).join(', ')}` : `스도쿠왕은 ${nm(kings[0])}!`;
-  const medals=['🥇','🥈','🥉','4위'];
-  $('ranks').innerHTML = order.map((p,k)=>`
-    <div class="rank"><b>${medals[k]}</b><span class="dot" style="background:${PLAYERS[p].main}"></span>
-    <span class="nm">${esc(nm(p))}</span><span>${c[p]}칸 · ⚔️${S.stat[p].atk} 🛡️${S.stat[p].def}</span></div>`).join('');
-  setTimeout(()=>{ $('end').hidden=false; }, 600);
+  let rank=0;
+  $('ranks').innerHTML = order.map((p,k)=>{
+    if(k===0 || c[p]!==c[order[k-1]]) rank=k+1; // 같은 점수는 같은 등수
+    const label = ['','🥇','🥈','🥉'][rank] || `${rank}위`;
+    return `<div class="rank"><b>${label}</b>${dotHtml(p)}<span class="nm">${esc(nm(p))}</span><span>${c[p]}칸 · ⚔️${S.stat[p].atk} 🛡️${S.stat[p].def}</span></div>`;
+  }).join('');
+  setTimeout(()=>{ $('end').hidden=false; $('ranks').scrollTop=0; }, 600);
 }
 
 /* ===== 알림 ===== */
