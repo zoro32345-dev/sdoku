@@ -1,0 +1,71 @@
+/* 스도쿠왕 쟁탈전 (동시 대결) 공통 디자인 — plan.md의 디자인 규칙을 따른다 */
+:root{
+  --bg:#fdf6ec; --ink:#2b2b2b; --muted:#7a7266; --card:#fffdf8; --line:#c9c2b6; --thick:#3a342c;
+  --neutral:#ece8df; --radius:14px; --red:#e5484d;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Jua',system-ui,'Malgun Gothic',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--radius)}
+button:disabled{opacity:.45;cursor:default}
+[hidden]{display:none!important}
+.dot{display:inline-block;width:20px;height:20px;border-radius:50%;flex-shrink:0;vertical-align:-3px}
+
+h1{font-size:clamp(34px,6vw,56px);text-align:center;margin:8px 0 4px;letter-spacing:1px}
+h1 span{color:var(--red)}
+.sub{text-align:center;color:var(--muted);font-size:20px;margin:0 0 22px}
+.card{background:var(--card);border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 2px 0 rgba(0,0,0,.06)}
+.card h2{margin:0 0 12px;font-size:24px;font-weight:normal}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{flex:1;min-width:84px;padding:14px 10px;font-size:22px;background:#efe9df;color:var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+.big{display:block;width:100%;padding:18px;font-size:28px;background:var(--red);color:#fff;box-shadow:0 5px 0 #b3363a}
+.big:active:not(:disabled){transform:translateY(3px);box-shadow:0 2px 0 #b3363a}
+.soft{padding:12px 16px;font-size:19px;background:#efe9df;color:var(--ink)}
+.muted{color:var(--muted)}
+
+/* ---------- 판 ---------- */
+.board{--k:1;--bw:3px;display:grid;aspect-ratio:1;border:4px solid var(--thick);border-radius:10px;overflow:hidden;background:var(--thick);container-type:inline-size;flex-shrink:0}
+.cell{display:flex;align-items:center;justify-content:center;font-size:calc(7cqw / var(--k));background:var(--neutral);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;user-select:none;transition:background .3s;min-width:0;min-height:0}
+.cell.br{border-right:var(--bw) solid var(--thick)}
+.cell.bb{border-bottom:var(--bw) solid var(--thick)}
+.cell.br9{border-right:5px solid #000}
+.cell.bb9{border-bottom:5px solid #000}
+.cell.given{color:#3a342c}
+.cell.solved{color:var(--pc)}
+.cell.base::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,0) 0 6px,rgba(255,255,255,.35) 6px 9px);pointer-events:none}
+.tag{position:absolute;top:1px;left:1px;z-index:3;font-size:max(10px,calc(2.6cqw / var(--k)));line-height:1.25;padding:0 .3em;border-radius:.4em;background:var(--pc);color:#fff;pointer-events:none}
+.cell.legal{cursor:pointer}
+.cell.legal::before{content:'';position:absolute;inset:8%;border:max(2px,calc(.5cqw / var(--k))) dashed var(--cur);border-radius:20%;opacity:.8}
+.cell.legal:hover::before{opacity:1;background:rgba(255,255,255,.45)}
+.cell.sel::before{content:'';position:absolute;inset:4%;border:max(3px,calc(.9cqw / var(--k))) solid var(--cur);border-radius:20%;background:rgba(255,255,255,.6);animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(.9)}}
+.cell.pop{animation:pop .6s}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.5);z-index:4;box-shadow:0 0 0 3px #fff}100%{transform:scale(1)}}
+.cell.wrong{animation:shake .45s;background:#ffb3b3!important}
+@keyframes shake{20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+
+/* ---------- 점수 칩 ---------- */
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px}
+.chip{display:flex;align-items:center;gap:6px;font-size:18px;padding:5px 8px;border-radius:10px;background:#f5efe5;border:3px solid transparent;white-space:nowrap;overflow:hidden}
+.chip .dot{width:14px;height:14px}
+.chip .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
+.chip.me{border-color:var(--ink);background:#fff}
+
+/* ---------- 알림 ---------- */
+.toast{position:fixed;left:50%;top:22px;transform:translateX(-50%) translateY(calc(-100% - 40px));background:var(--ink);color:#fff;font-size:24px;padding:12px 24px;border-radius:999px;transition:transform .3s;z-index:40;max-width:92vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.net{position:fixed;right:10px;bottom:8px;font-size:15px;color:var(--muted);z-index:5}
+.net.bad{color:var(--red)}
+
+/* ---------- 결과 ---------- */
+.overlay{position:fixed;inset:0;background:rgba(40,34,26,.6);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
+.endbox{background:var(--card);border-radius:24px;padding:24px 22px;width:min(560px,100%);max-height:94vh;display:flex;flex-direction:column;text-align:center}
+.crown{font-size:72px;line-height:1;animation:bounce 1.2s infinite}
+@keyframes bounce{50%{transform:translateY(-10px)}}
+.endbox h2{font-size:34px;margin:6px 0 14px;font-weight:normal}
+.ranks{overflow:auto;min-height:0}
+.rank{display:flex;align-items:center;gap:12px;font-size:22px;padding:8px 14px;border-radius:14px;margin-bottom:6px;background:#f5efe5;text-align:left}
+.rank.me{outline:3px solid var(--ink)}
+.rank b{font-weight:normal;width:44px}
+.rank span.nm{flex:1}
+.endbox .big{margin-top:14px;flex-shrink:0}

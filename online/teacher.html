@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스도쿠왕 쟁탈전 · 선생님</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  #setup{max-width:720px;margin:0 auto;padding:28px 16px 40px}
+  .count{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .count .step{width:60px;height:60px;font-size:32px;background:#efe9df;color:var(--ink)}
+  .count input{width:110px;height:60px;font-family:inherit;font-size:34px;text-align:center;border:3px solid var(--ink);border-radius:var(--radius);background:#fff}
+  .count .unit{font-size:24px}
+  .count .quick{display:flex;gap:8px;margin-left:auto}
+  .count .quick button{padding:12px 14px;font-size:19px;background:#efe9df;color:var(--ink)}
+  .info{margin:12px 0 0;color:var(--muted);font-size:18px}
+  .err{color:var(--red);text-align:center;font-size:20px;min-height:28px;margin:10px 0 0}
+
+  /* 대기실 */
+  #lobby{display:flex;gap:28px;padding:24px;min-height:100vh;align-items:center;justify-content:center;flex-wrap:wrap}
+  .join{background:var(--card);border-radius:24px;padding:26px;text-align:center;width:min(440px,94vw)}
+  .join .lbl{font-size:24px;color:var(--muted)}
+  .code{font-size:clamp(80px,12vw,140px);letter-spacing:12px;line-height:1.05;margin:4px 0 10px}
+  .url{font-size:20px;word-break:break-all;background:#f5efe5;border-radius:12px;padding:10px;margin:10px 0}
+  #qr{display:flex;justify-content:center;margin:12px 0 4px}
+  #qr img,#qr canvas{border:10px solid #fff;border-radius:10px}
+  .who{background:var(--card);border-radius:24px;padding:22px;width:min(640px,94vw)}
+  .who h2{margin:0 0 6px;font-size:28px;font-weight:normal}
+  .seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin:14px 0 18px;max-height:52vh;overflow:auto}
+  .seat{padding:12px 0;font-size:22px;border-radius:12px;background:#ece8df;color:#a39b8f;text-align:center;border:none;font-family:inherit}
+  .seat.in{color:#fff;cursor:pointer}
+  .row{display:flex;gap:10px}
+  .row > *{flex:1}
+
+  /* 게임 중 */
+  #play{display:flex;gap:20px;padding:14px;justify-content:center;align-items:center;min-height:100vh}
+  #play .board{width:min(94vh,64vw)}
+  .side{width:min(420px,32vw);display:flex;flex-direction:column;gap:12px}
+  .clock{background:var(--ink);color:#fff;border-radius:18px;padding:10px 16px;text-align:center}
+  .clock .t{font-size:58px;line-height:1.1}
+  .clock small{font-size:18px;opacity:.85}
+  .clock.hurry{background:var(--red)}
+  .leader{background:var(--card);border-radius:18px;padding:12px 14px;font-size:22px;text-align:center}
+  .feed{background:var(--card);border-radius:18px;padding:10px 14px;font-size:18px;min-height:120px;max-height:22vh;overflow:hidden;display:flex;flex-direction:column;gap:4px}
+  .feed div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;line-height:1.35}
+  .feed div:first-child{font-size:20px}
+  .side .chips{background:var(--card);border-radius:18px;padding:10px;max-height:28vh;overflow:auto}
+  .chip.off{opacity:.45}
+  .small{font-size:18px;color:var(--muted);text-align:center}
+
+  @media (max-width:900px), (orientation:portrait){
+    #play{flex-direction:column;justify-content:flex-start}
+    #play .board{width:min(96vw,60vh)}
+    .side{width:min(96vw,620px)}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 1. 설정 ===== -->
+<div id="setup" hidden>
+  <h1>👑 스도쿠<span>왕</span> 쟁탈전</h1>
+  <p class="sub">선생님 화면 · 각자 기기로 동시에 대결해요</p>
+
+  <div class="card">
+    <h2>몇 명이 할까요?</h2>
+    <div class="count">
+      <button class="step" id="minus">−</button>
+      <input id="nInput" type="number" min="2" max="100" value="18" inputmode="numeric">
+      <button class="step" id="plus">+</button>
+      <span class="unit">명</span>
+      <div class="quick"><button data-v="4">4명</button><button data-v="18">18명</button><button data-v="25">25명</button></div>
+    </div>
+    <p class="info" id="mapInfo"></p>
+  </div>
+
+  <div class="card">
+    <h2>난이도</h2>
+    <div class="seg" id="segDiff"><button data-v="easy" class="on">쉬움</button><button data-v="normal">보통</button><button data-v="hard">어려움</button></div>
+  </div>
+
+  <div class="card">
+    <h2>게임 시간</h2>
+    <div class="seg" id="segTime"><button data-v="5">5분</button><button data-v="10" class="on">10분</button><button data-v="15">15분</button><button data-v="20">20분</button></div>
+  </div>
+
+  <button class="big" id="btnCreate">방 만들기</button>
+  <p class="err" id="setupErr"></p>
+</div>
+
+<!-- ===== 2. 대기실 ===== -->
+<div id="lobby" hidden>
+  <div class="join">
+    <div class="lbl">입장 코드</div>
+    <div class="code" id="code">----</div>
+    <div class="lbl">학생 접속 주소</div>
+    <div class="url" id="url"></div>
+    <div id="qr"></div>
+    <p class="small" id="urlNote"></p>
+  </div>
+  <div class="who">
+    <h2>들어온 학생 <span id="joinCount">0</span> / <span id="seatTotal">0</span></h2>
+    <p class="small" style="text-align:left;margin:0">색깔 번호를 누르면 그 번호의 기기 연결을 풀 수 있어요 (기기를 바꿀 때).</p>
+    <div class="seats" id="seats"></div>
+    <div class="row">
+      <button class="soft" id="btnCancel">방 닫기</button>
+      <button class="big" id="btnStart" disabled>시작!</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 3. 게임 중 ===== -->
+<div id="play" hidden>
+  <div class="board" id="board"></div>
+  <div class="side">
+    <div class="clock" id="clock"><div class="t" id="clockT">0:00</div><small id="clockSub">남은 시간</small></div>
+    <div class="leader" id="leader"></div>
+    <div class="feed" id="feed"></div>
+    <div class="chips" id="chips"></div>
+    <div class="small">입장 코드 <b id="code2"></b> · 늦게 온 학생도 들어올 수 있어요 · <span id="left"></span></div>
+    <button class="soft" id="btnFinish">여기서 끝내기</button>
+  </div>
+</div>
+
+<!-- ===== 4. 결과 ===== -->
+<div class="overlay" id="end" hidden>
+  <div class="endbox">
+    <div class="crown">👑</div>
+    <h2 id="endTitle"></h2>
+    <div class="ranks" id="ranks"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="soft" id="btnPeek">지도 보기</button>
+      <button class="big" id="btnNew" style="margin-top:0">새 게임</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="net" id="net"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="common.js"></script>
+<script>
+/* ===== 상태 ===== */
+const LS = 'sudoku_host';          // 이 기기가 만든 방 (새로고침해도 이어서)
+const cfg = {n:18, diff:'easy', min:10};
+let H = null;                      // {room_id, code, host_key, skew}
+let V = null, players = [], unsub = null, tick = null, finishing = false, feedList = [];
+
+const save = () => { try{ localStorage.setItem(LS, JSON.stringify(H)); }catch(e){} };
+const load = () => { try{ return JSON.parse(localStorage.getItem(LS)); }catch(e){ return null; } };
+const forget = () => { try{ localStorage.removeItem(LS); }catch(e){} };
+const show = id => ['setup','lobby','play'].forEach(x=>$(x).hidden = x!==id);
+
+/* ===== 1. 설정 ===== */
+function setN(v){
+  v = Math.max(2, Math.min(100, Math.round(Number(v)||2)));
+  cfg.n = v; $('nInput').value = v;
+  const k = blocksFor(v);
+  $('mapInfo').textContent = `지도 크기: ${9*k}×${9*k}칸 (스도쿠 판 ${k*k}장) · 학생은 1번~${v}번으로 들어와요`;
+}
+$('minus').onclick = ()=>setN(cfg.n-1);
+$('plus').onclick  = ()=>setN(cfg.n+1);
+$('nInput').addEventListener('change', e=>setN(e.target.value));
+document.querySelector('.quick').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setN(b.dataset.v); });
+function seg(id, key, cast){
+  $(id).addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...$(id).children].forEach(x=>x.classList.toggle('on', x===b));
+    cfg[key]=cast(b.dataset.v);
+  });
+}
+seg('segDiff','diff',String); seg('segTime','min',Number);
+setN(cfg.n);
+
+$('btnCreate').onclick = async ()=>{
+  const btn=$('btnCreate'); btn.disabled=true; $('setupErr').textContent='';
+  btn.textContent='문제를 만드는 중…';
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    const m = buildMap(cfg.n, cfg.diff);
+    btn.textContent='방을 여는 중…';
+    const res = await call('sudoku_create_room', {
+      p_n:m.n, p_k:m.K, p_diff:cfg.diff, p_duration:cfg.min*60,
+      p_puzzle:m.puzzle, p_solution:m.sol, p_owner:m.owner, p_base:m.base,
+    });
+    H = {room_id:res.room_id, code:res.code, host_key:res.host_key, skew:0};
+    save();
+    await enterRoom();
+  }catch(e){
+    console.error(e);
+    $('setupErr').textContent = '방을 만들지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.';
+  }finally{ btn.disabled=false; btn.textContent='방 만들기'; }
+};
+
+/* ===== 방 들어가기 (새로 만들었거나, 새로고침 후 이어서) ===== */
+async function enterRoom(){
+  const room = await fetchRoom(H.room_id);
+  if(!room){ forget(); H=null; show('setup'); return; }
+  V = makeView(room);
+  (await fetchClaims(H.room_id)).forEach(cl=>applyClaim(V,cl));
+  players = await fetchPlayers(H.room_id);
+  unsub?.();
+  unsub = subscribeRoom(H.room_id, {onClaim, onPlayer, onRoom, onStatus, resync});
+  route();
+}
+function route(){
+  const st = V.room.status;
+  if(st==='lobby'){ showLobby(); }
+  else { showPlay(); if(st==='ended') showEnd(); }
+}
+
+/* ===== 2. 대기실 ===== */
+function studentUrl(){ return new URL('./', location.href).href; }
+function showLobby(){
+  show('lobby'); $('end').hidden = true;
+  $('code').textContent = H.code;
+  const url = studentUrl();
+  $('url').textContent = url;
+  $('qr').innerHTML = '';
+  try{ new QRCode($('qr'), {text:url, width:200, height:200}); }catch(e){}
+  $('urlNote').textContent = location.protocol==='file:' || location.hostname==='localhost'
+    ? '⚠️ 지금은 이 컴퓨터에서만 열려요. 인터넷에 올린 뒤에 학생 기기에서 들어올 수 있어요.' : '태블릿 카메라로 QR을 찍어도 돼요.';
+  renderSeats();
+}
+function renderSeats(){
+  const joined = new Set(players.map(p=>p.num));
+  $('joinCount').textContent = joined.size;
+  $('seatTotal').textContent = V.n;
+  $('seats').innerHTML = Array.from({length:V.n},(_,p)=>{
+    const on = joined.has(p+1);
+    return `<button class="seat ${on?'in':''}" data-num="${p+1}" style="${on?`background:${V.colors[p].main}`:''}">${p+1}</button>`;
+  }).join('');
+  $('btnStart').disabled = joined.size===0;
+}
+$('seats').addEventListener('click', e=>{ const b=e.target.closest('.seat.in'); if(b) release(Number(b.dataset.num)); });
+$('chips').addEventListener('click', e=>{ const b=e.target.closest('.chip:not(.off)'); if(b) release(Number(b.dataset.num)); });
+async function release(num){
+  if(!confirm(`${num}번 기기 연결을 풀까요?\n학생이 다른 기기로 ${num}번을 다시 입력해 들어올 수 있어요. (땅과 점수는 그대로예요)`)) return;
+  try{ await call('sudoku_release', {p_room:H.room_id, p_host:H.host_key, p_num:num}); toast(`${num}번 연결을 풀었어요`); }
+  catch(e){ toast('연결을 풀지 못했어요'); }
+}
+$('btnCancel').onclick = async ()=>{
+  if(!confirm('방을 닫을까요? 들어온 학생들도 나가게 돼요.')) return;
+  try{ await call('sudoku_finish', {p_room:H.room_id, p_host:H.host_key}); }catch(e){}
+  newGame();
+};
+$('btnStart').onclick = async ()=>{
+  $('btnStart').disabled = true;
+  try{
+    const t0 = Date.now();
+    await call('sudoku_start', {p_room:H.room_id, p_host:H.host_key});
+    const st = await fetchRoomStatus(H.room_id);
+    // 이 컴퓨터 시계와 데이터베이스 시계의 차이 (남은 시간을 정확히 보여 주려고)
+    H.skew = Date.parse(st.started_at) - (t0 + Date.now())/2; save();
+    Object.assign(V.room, st);
+    route();
+  }catch(e){ toast('시작하지 못했어요. 다시 눌러 주세요'); $('btnStart').disabled=false; }
+};
+
+/* ===== 3. 게임 중 ===== */
+function showPlay(){
+  show('play');
+  $('code2').textContent = H.code;
+  buildBoard($('board'), V, null);
+  feedList = []; $('feed').innerHTML = '<div class="muted">학생들이 푼 소식이 여기에 나와요</div>';
+  renderPlay();
+  clearInterval(tick); tick = setInterval(updateClock, 250); updateClock();
+}
+function renderPlay(){
+  renderBoard($('board'), V);
+  const c = countsOf(V), joined = new Set(players.map(p=>p.num));
+  const top = Math.max(...c), leaders = [...Array(V.n).keys()].filter(p=>c[p]===top);
+  $('leader').innerHTML = leaders.length===V.n
+    ? `모두 ${top}칸에서 시작! 누가 먼저 넓힐까요?`
+    : `👑 지금 1등 ${leaders.slice(0,3).map(p=>`<span style="white-space:nowrap">${dotHtml(V.colors,p)} ${nm(p)}</span>`).join(' ')}${leaders.length>3?` 외 ${leaders.length-3}명`:''} · ${top}칸`;
+  $('chips').innerHTML = c.map((v,p)=>`<div class="chip ${joined.has(p+1)?'':'off'}" data-num="${p+1}" title="${joined.has(p+1)?'눌러서 기기 연결 풀기':'아직 안 들어옴'}">${dotHtml(V.colors,p)}<span class="nm">${nm(p)}</span><span>${v}</span></div>`).join('');
+  $('left').textContent = `남은 문제 ${blanksLeft(V)}칸`;
+}
+function updateClock(){
+  const st = V.room.status;
+  if(st!=='playing' || !V.room.ends_at){ $('clockT').textContent = st==='ended' ? '끝!' : '0:00'; $('clockSub').textContent=''; return; }
+  const left = (Date.parse(V.room.ends_at) - (Date.now() + (H.skew||0)))/1000;
+  $('clockT').textContent = fmtTime(left);
+  $('clockSub').textContent = '남은 시간';
+  $('clock').classList.toggle('hurry', left<=30);
+  if(left<=0 && !finishing) finishGame(false);
+}
+async function finishGame(ask){
+  if(ask && !confirm('지금 땅 개수로 스도쿠왕을 정할까요?')) return;
+  finishing = true;
+  try{ await call('sudoku_finish', {p_room:H.room_id, p_host:H.host_key}); }catch(e){}
+  const st = await fetchRoomStatus(H.room_id).catch(()=>null);
+  if(st) onRoom(st);
+  finishing = false;
+}
+$('btnFinish').onclick = ()=>finishGame(true);
+
+/* ===== 4. 결과 ===== */
+async function showEnd(){
+  clearInterval(tick); updateClock();
+  players = await fetchPlayers(H.room_id).catch(()=>players);
+  $('endTitle').textContent = kingsTitle(V);
+  $('ranks').innerHTML = rankingHtml(V, players);
+  $('end').hidden = false; $('ranks').scrollTop = 0;
+}
+$('btnPeek').onclick = ()=>{ $('end').hidden = true; setTimeout(()=>{ if(V.room.status==='ended') $('end').hidden=false; }, 8000); };
+$('btnNew').onclick = ()=>newGame();
+function newGame(){
+  unsub?.(); unsub=null; clearInterval(tick);
+  forget(); H=null; V=null; players=[];
+  $('end').hidden = true; show('setup');
+}
+
+/* ===== 실시간 ===== */
+function onClaim(cl){
+  if(!V || !applyClaim(V, cl)) return;
+  if(!$('play').hidden){
+    renderPlay(); popCell($('board'), cl.cell);
+    feedList.unshift(claimMessage(cl)); feedList = feedList.slice(0,8);
+    $('feed').innerHTML = feedList.map(esc).map(s=>`<div>${s}</div>`).join('');
+  }
+}
+function onPlayer(p){
+  const i = players.findIndex(x=>x.num===p.num);
+  if(i>=0) players[i] = {...players[i], ...p}; else { players.push(p); if(!$('lobby').hidden) toast(`${p.num}번이 들어왔어요`, 1200); }
+  if(!$('lobby').hidden) renderSeats(); else if(!$('play').hidden) renderPlay();
+}
+function onRoom(r){
+  const before = V.room.status;
+  V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; if(r.ends_at) V.room.ends_at = r.ends_at;
+  if(before!==r.status) route();
+}
+function onStatus(s){
+  const ok = s==='SUBSCRIBED';
+  $('net').textContent = ok ? '● 실시간 연결됨' : '● 연결 확인 중…';
+  $('net').classList.toggle('bad', !ok);
+  if(ok) resync();
+}
+async function resync(){
+  if(!H || !V) return;
+  try{
+    const [st, cls, ps] = await Promise.all([fetchRoomStatus(H.room_id), fetchClaims(H.room_id), fetchPlayers(H.room_id)]);
+    let changed=false; cls.forEach(cl=>{ if(applyClaim(V,cl)) changed=true; });
+    players = ps;
+    if(!$('lobby').hidden) renderSeats(); else if(!$('play').hidden && changed) renderPlay();
+    onRoom(st);
+  }catch(e){ $('net').textContent='● 인터넷 연결을 확인해 주세요'; $('net').classList.add('bad'); }
+}
+
+/* ===== 처음 열 때 ===== */
+(async ()=>{
+  H = load();
+  if(!H){ show('setup'); return; }
+  try{ await enterRoom(); }catch(e){ console.error(e); show('setup'); }
+})();
+</script>
+</body>
+</html>
