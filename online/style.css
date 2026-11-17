@@ -39,6 +39,9 @@ h1 span{color:var(--red)}
 .cell.legal:hover::before{opacity:1;background:rgba(255,255,255,.45)}
 .cell.sel::before{content:'';position:absolute;inset:4%;border:max(3px,calc(.9cqw / var(--k))) solid var(--cur);border-radius:20%;background:rgba(255,255,255,.6);animation:pulse 1s infinite}
 @keyframes pulse{50%{transform:scale(.9)}}
+.board.open .cell.base::after{background:repeating-linear-gradient(45deg,rgba(229,72,77,0) 0 6px,rgba(229,72,77,.35) 6px 9px)}
+.cell.fresh{animation:fresh 1.4s}
+@keyframes fresh{0%{filter:brightness(1.6) saturate(.4)}100%{filter:none}}
 .cell.pop{animation:pop .6s}
 @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.5);z-index:4;box-shadow:0 0 0 3px #fff}100%{transform:scale(1)}}
 .cell.wrong{animation:shake .45s;background:#ffb3b3!important}
@@ -58,8 +61,8 @@ h1 span{color:var(--red)}
 .lrow .dot{width:16px;height:16px}
 .lrow .nm{width:6.2em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
 .lrow .nm small{color:var(--muted)}
-.lrow .bar{flex:1;height:12px;background:#e6dfd3;border-radius:6px;overflow:hidden;min-width:30px}
-.lrow .bar i{display:block;height:100%;transition:width .45s}
+.lrow .lbar{flex:1;height:12px;background:#e6dfd3;border-radius:6px;overflow:hidden;min-width:30px}
+.lrow .lbar i{display:block;height:100%;transition:width .45s}
 .lrow .ct{width:2.4em;text-align:right}
 .lrow.me{border-color:var(--ink);background:#fff}
 .lrow.dim{opacity:.45}

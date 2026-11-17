@@ -81,6 +81,9 @@
       <li>⚔️ 내 땅 옆의 친구 땅·회색 땅을 맞히면 내 땅이 돼요.</li>
       <li>🛡️ 내 땅 빈칸을 맞히면 다시는 못 뺏겨요.</li>
       <li>같은 칸은 먼저 맞힌 사람 것! 틀리면 5초 쉬어요.</li>
+      <li>🪂 둘 곳이 없으면 낙하산! 아무 빈칸이나 풀 수 있어요.</li>
+      <li>🔄 판을 다 채우면 새 문제가 나와요. 땅 색깔은 그대로!</li>
+      <li>🔥 선생님이 본진 공격을 열면 본진도 빼앗을 수 있어요.</li>
     </ul>
   </div>
 </div>
@@ -228,9 +231,13 @@ function buildPad(){
   for(let d=1;d<=9;d++){ const b=document.createElement('button'); b.textContent=d; b.onclick=()=>answer(d); pad.appendChild(b); }
 }
 const playing = () => V && V.room.status==='playing';
+let moves = {cells:new Set(), para:false}, wasPara = false;
 function render(){
-  if(sel>=0 && !legalFor(V,me,sel)) sel=-1;   // 다른 친구가 먼저 가져간 칸이면 선택 풀기
-  renderBoard($('board'), V, {me, sel, playing:playing() && Date.now()>=coolUntil});
+  moves = movesFor(V, me);
+  if(sel>=0 && !moves.cells.has(sel)) sel=-1;   // 다른 친구가 먼저 가져간 칸이면 선택 풀기
+  if(playing() && moves.para && !wasPara) toast('🪂 둘 곳이 없어요! 낙하산 발동 — 아무 빈칸이나 골라요', 2600);
+  wasPara = playing() && moves.para;
+  renderBoard($('board'), V, {me, sel, playing:playing() && Date.now()>=coolUntil, legal:moves.cells});
   const c=countsOf(V), mine=c[me];
   const rank = 1 + c.filter(x=>x>mine).length;
   $('who').textContent = myName();
@@ -238,15 +245,15 @@ function render(){
   renderLiveRank($('mini'), V, players, {meP:me, limit:5});
   $('pad').classList.toggle('off', sel<0);
   if(!playing()) $('hint').textContent = '게임이 끝났어요';
-  else if(sel<0) $('hint').textContent = '점선 칸 하나를 골라요';
+  else if(sel<0) $('hint').textContent = moves.para ? '🪂 낙하산! 아무 빈칸이나 골라요' : '점선 칸 하나를 골라요';
   else {
     const o=V.owner[sel];
     $('hint').textContent = o===me ? '🛡️ 수비! 알맞은 숫자를 눌러요' : (o<0 ? '⚔️ 빈 땅 차지! 숫자를 눌러요' : `⚔️ ${nm(o)} 땅 공격! 숫자를 눌러요`);
   }
-  $('left').textContent = `남은 문제 ${blanksLeft(V)}칸`;
+  $('left').textContent = `빈칸 ${blanksLeft(V)}개 · 판을 다 채우면 새 문제!`;
 }
 function pick(i){
-  if(!playing() || Date.now()<coolUntil || !legalFor(V,me,i)) return;
+  if(!playing() || Date.now()<coolUntil || !moves.cells.has(i)) return;
   sel = sel===i ? -1 : i; render();
 }
 async function answer(d){
@@ -259,9 +266,10 @@ async function answer(d){
   switch(res.r){
     case 'ok':
       sel=-1;
-      applyClaim(V, {cell, player:me, value:d, prev_owner:res.prev});
+      applyClaim(V, {cell, player:me, value:d, prev_owner:res.prev, solved:true});
       render(); popCell($('board'), cell);
-      toast(res.kind==='def' ? '🛡️ 수비 성공! 이제 안전해요' : res.kind==='neutral' ? '🚩 빈 땅을 차지했어요!' : `⚔️ ${nm(res.prev)} 땅을 빼앗았어요!`);
+      if(res.refreshed){ toast('🔄 판을 다 채웠어요! 새 문제가 나와요', 2400); resync(); }
+      else toast(res.kind==='para' ? '🪂 낙하산 착륙 성공! 여기서 다시 넓혀요' : res.kind==='def' ? '🛡️ 수비 성공! 이제 안전해요' : res.kind==='neutral' ? '🚩 빈 땅을 차지했어요!' : `⚔️ ${nm(res.prev)} 땅을 빼앗았어요!`);
       break;
     case 'wrong':
       sel=-1; wrongShake(cell); startCool(5); break;
@@ -318,8 +326,13 @@ async function showEnd(){
 $('btnPeek').onclick = ()=>{ $('end').hidden=true; setTimeout(()=>{ if(V && V.room.status==='ended') $('end').hidden=false; }, 8000); };
 
 /* ===== 실시간 ===== */
+let renderQueued=false;
 function onClaim(cl){
   if(!V || !applyClaim(V, cl)) return;
+  if(cl.solved===false){
+    if(!renderQueued){ renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; if(!$('play').hidden) render(); }); }
+    return;
+  }
   if(!$('play').hidden){
     render(); popCell($('board'), cl.cell);
     if(cl.prev_owner===me && cl.player!==me) toast(`😱 ${nm(cl.player)}에게 ${V.team?'우리 모둠 ':''}땅을 빼앗겼어요!`);
@@ -331,12 +344,17 @@ function onPlayer(p){
   if(!$('play').hidden && V) renderLiveRank($('mini'), V, players, {meP:me, limit:5});
 }
 function onRoom(r){
-  const before=V.room.status;
+  const before=V.room.status, beforeRef=V.room.refreshes||0, beforeOpen=!!V.room.base_open;
   V.room.status=r.status; if(r.started_at) V.room.started_at=r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
   if(before!==r.status){
     if(r.status==='playing') toast('시작! 점선 칸을 골라요', 2200);
-    route();
+    route(); return;
   }
+  const opened = r.base_open!==undefined && !!r.base_open && !beforeOpen;
+  const refreshed = r.refreshes!==undefined && r.refreshes>beforeRef;
+  if(opened) toast('🔥 본진 공격 시작! 본진도 빼앗을 수 있어요. 내 본진도 지켜요!', 3200);
+  else if(refreshed) toast('🔄 새 문제가 나왔어요!', 1800);
+  if(opened || refreshed) resync().then(()=>{ if(refreshed && !opened && !$('play').hidden) flashBlock($('board'), V, r.last_block); });
 }
 function onStatus(s){
   const ok = s==='SUBSCRIBED';
@@ -351,9 +369,10 @@ async function resync(){
   try{
     const [st, cls] = await Promise.all([fetchRoomStatus(P.room_id), fetchClaims(P.room_id)]);
     if(!st){ leave('방이 닫혔어요'); return; }
-    let changed=false; cls.forEach(cl=>{ if(applyClaim(V,cl)) changed=true; });
-    if(changed && !$('play').hidden) render();
-    onRoom(st);
+    const statusChanged = st.status!==V.room.status;
+    rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block}, cls);
+    if(!$('play').hidden) render(); else if(!$('wait').hidden) renderBoard($('waitBoard'), V);
+    if(statusChanged) onRoom(st); else V.room.ends_at = st.ends_at ?? V.room.ends_at;
   }catch(e){ $('net').textContent='● 인터넷 연결을 확인해 주세요'; $('net').classList.add('bad'); }
   finally{ syncing=false; }
 }

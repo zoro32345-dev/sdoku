@@ -69,8 +69,10 @@ function countSol(g){
   for(let d=1;d<=9;d++){ if(bestM&(1<<d)){ g[best]=d; total+=countSol(g); if(total>=2) break; } }
   g[best]=0; return total;
 }
-function makePuzzle(keepLocal, diff){
-  const sol = new Array(81).fill(0); fillFull(sol);
+// keepLocal: 꼭 보여 줄 칸. givenSol을 주면 그 정답으로 빈칸 모양만 새로 만든다(공격용 문제).
+function makePuzzle(keepLocal, diff, givenSol){
+  const sol = givenSol ? givenSol.slice() : new Array(81).fill(0);
+  if(!givenSol) fillFull(sol);
   const g = sol.slice();
   const others = shuffle([...Array(81).keys()].filter(i=>!keepLocal[i]));
   const target = Math.round(others.length*KEEP[diff]);
@@ -98,9 +100,12 @@ function placeBases(n, B){
   }
   return chosen.sort((a,b)=>a[1]-b[1] || a[0]-b[0]);
 }
+// 지도 크기: 인원에 맞춘 기본 크기에서 boost만큼 판을 더 이어 붙인다 (최대 5×5장 = 45×45칸)
+const MAX_K = 5;
+const mapK = (n, boost=0) => Math.min(MAX_K, blocksFor(n) + boost);
 // 인원·난이도로 지도 전체를 만든다. 결과는 데이터베이스에 그대로 보낸다.
-function buildMap(n, diff){
-  const K=blocksFor(n), B=3*K, W=9*K, C=W*W;
+function buildMap(n, diff, boost=0){
+  const K=mapK(n, boost), B=3*K, W=9*K, C=W*W;
   const bases = placeBases(n, B);
   const owner = new Array(C).fill(-1), base = new Array(C).fill(false), dist = new Array(C).fill(0);
   bases.forEach(([bx,by],p)=>{ for(let a=0;a<3;a++) for(let b=0;b<3;b++){ const i=(by*3+a)*W + bx*3+b; owner[i]=p; base[i]=true; } });
@@ -121,14 +126,16 @@ function buildMap(n, diff){
   const fair = Math.min(...mine.map(a=>a.length));
   mine.forEach(list=>{ shuffle(list).sort((a,b)=>dist[b]-dist[a]); list.slice(0, list.length-fair).forEach(i=>owner[i]=-1); });
 
-  const sol=new Array(C), puzzle=new Array(C);
+  const sol=new Array(C), puzzle=new Array(C), maskOpen=new Array(C);
   for(let BY=0;BY<K;BY++) for(let BX=0;BX<K;BX++){
     const g2l = (r,c)=>(BY*9+r)*W + BX*9+c;
     const keep = Array.from({length:81},(_,j)=>base[g2l(Math.floor(j/9), j%9)]);
     const {sol:s, puz} = makePuzzle(keep, diff);
-    for(let j=0;j<81;j++){ const i=g2l(Math.floor(j/9), j%9); sol[i]=s[j]; puzzle[i]=puz[j]; }
+    // 공격용 문제: 같은 정답, 본진을 꼭 보여 주지 않는 빈칸 모양 (본진 공격 때 바뀐다)
+    const {puz:open} = makePuzzle(new Array(81).fill(false), diff, s);
+    for(let j=0;j<81;j++){ const i=g2l(Math.floor(j/9), j%9); sol[i]=s[j]; puzzle[i]=puz[j]; maskOpen[i]=open[j]!==0; }
   }
-  return {n, K, W, C, sol, puzzle, owner, base};
+  return {n, K, W, C, sol, puzzle, owner, base, maskOpen};
 }
 
 /* ===== 방 정보 → 화면 상태 ===== */
@@ -155,13 +162,36 @@ function makeView(room){
   }
   return v;
 }
+// 칸 하나 반영. solved=false 면 땅 주인은 그대로, 숫자만 다시 빈칸(새 문제가 나온 판)
 function applyClaim(v, cl){
-  if(v.claimed.has(cl.cell)) return false;
-  v.claimed.add(cl.cell); v.owner[cl.cell]=cl.player; v.value[cl.cell]=cl.value;
+  const solved = cl.solved !== false;
+  if(solved){
+    if(v.claimed.has(cl.cell) && v.owner[cl.cell]===cl.player && v.value[cl.cell]===cl.value) return false;
+    v.owner[cl.cell]=cl.player; v.value[cl.cell]=cl.value; v.claimed.add(cl.cell);
+  } else {
+    v.owner[cl.cell]=cl.player; v.value[cl.cell]=v.room.puzzle[cl.cell]||0; v.claimed.delete(cl.cell);
+  }
   return true;
+}
+// 방(문제)과 칸 목록으로 화면 상태를 처음부터 다시 맞춘다 (새 문제·본진 공격 뒤)
+function rebuildView(v, room, claims){
+  Object.assign(v.room, room);
+  v.owner = v.room.init_owner.slice();
+  v.value = v.room.puzzle.slice();
+  v.given = v.room.puzzle.map(x=>x>0);
+  v.claimed = new Set();
+  claims.forEach(cl=>applyClaim(v, cl));
 }
 const isBlank = (v,i) => v.value[i]===0;
 const blanksLeft = v => v.value.filter(x=>x===0).length;
+// 이 주인(p)이 지금 고를 수 있는 칸. 하나도 없으면 낙하산: 모든 빈칸
+function movesFor(v, p){
+  const cells = new Set();
+  for(let i=0;i<v.C;i++) if(legalFor(v,p,i)) cells.add(i);
+  if(cells.size) return {cells, para:false};
+  for(let i=0;i<v.C;i++) if(isBlank(v,i)) cells.add(i);
+  return {cells, para:true};
+}
 function countsOf(v){ const c=new Array(v.n).fill(0); v.owner.forEach(o=>{ if(o>=0) c[o]++; }); return c; }
 function neighborsOf(v,i){ const W=v.W, r=Math.floor(i/W), c=i%W, o=[]; if(r>0)o.push(i-W); if(r<W-1)o.push(i+W); if(c>0)o.push(i-1); if(c<W-1)o.push(i+1); return o; }
 function legalFor(v,p,i){
@@ -189,9 +219,11 @@ function buildBoard(el, v, onCell){
   }
   el.appendChild(frag);
 }
-// opt: {me: 내 번호(0부터) 또는 -1, sel: 고른 칸, playing: 둘 수 있는지}
+// opt: {me: 내 번호(0부터) 또는 -1, sel: 고른 칸, playing: 둘 수 있는지, legal: 고를 수 있는 칸 Set}
 function renderBoard(el, v, opt={}){
   const cells=el.children, me=opt.me ?? -1;
+  el.classList.toggle('open', !!v.room.base_open);
+  const legal = opt.legal || null;
   for(let i=0;i<v.C;i++){
     const d=cells[i], o=v.owner[i];
     d.style.background = o<0 ? '' : (v.base[i] ? v.colors[o].base : v.colors[o].tint);
@@ -200,13 +232,22 @@ function renderBoard(el, v, opt={}){
     d.classList.toggle('base', v.base[i]);
     d.classList.toggle('given', v.given[i]);
     d.classList.toggle('solved', v.claimed.has(i));
-    d.classList.toggle('legal', me>=0 && !!opt.playing && i!==opt.sel && legalFor(v,me,i));
+    d.classList.toggle('legal', me>=0 && !!opt.playing && i!==opt.sel && (legal ? legal.has(i) : legalFor(v,me,i)));
     d.classList.toggle('sel', me>=0 && i===opt.sel);
   }
 }
 function popCell(el, i){
   const d=el.children[i]; if(!d) return;
   d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop');
+}
+// 새 문제가 나온 판(block 번호)을 반짝이게
+function flashBlock(el, v, block){
+  if(block==null) return;
+  const by=Math.floor(block/v.K), bx=block%v.K;
+  for(let r=0;r<9;r++) for(let c=0;c<9;c++){
+    const d=el.children[(by*9+r)*v.W + bx*9+c]; if(!d) continue;
+    d.classList.remove('fresh'); void d.offsetWidth; d.classList.add('fresh');
+  }
 }
 
 /* ===== 순위 ===== */
@@ -251,14 +292,14 @@ function renderLiveRank(el, v, players, opt={}){
     let row = el.querySelector(`[data-p="${p}"]`);
     if(!row){
       row = document.createElement('div'); row.className='lrow'; row.dataset.p=p;
-      row.innerHTML = `<b class="rk"></b>${dotHtml(v.colors,p)}<span class="nm"></span><span class="bar"><i style="background:${v.colors[p].main}"></i></span><span class="ct"></span>`;
+      row.innerHTML = `<b class="rk"></b>${dotHtml(v.colors,p)}<span class="nm"></span><span class="lbar"><i style="background:${v.colors[p].main}"></i></span><span class="ct"></span>`;
       if(opt.onClick) row.onclick = ()=>opt.onClick(p);
       el.appendChild(row);
     }
     const prevCount = Number(row.dataset.c ?? c[p]);
     row.querySelector('.rk').textContent = medal(ranks[p]);
     row.querySelector('.nm').textContent = nm(p) + (opt.extra ? opt.extra(p, st[p]) : '');
-    row.querySelector('.bar i').style.width = (c[p]/max*100)+'%';
+    row.querySelector('.lbar i').style.width = (c[p]/max*100)+'%';
     row.querySelector('.ct').textContent = c[p];
     row.classList.toggle('me', p===opt.meP);
     row.classList.toggle('dim', !!opt.dim && opt.dim(p));
@@ -284,7 +325,7 @@ function kingsTitle(v){
    변화는 알림으로 받고, 혹시 놓친 게 있을까 봐 30초마다 한 번만 전체를 다시 맞춘다. */
 function subscribeRoom(roomId, h){
   const ch = sb.channel('sudoku-'+roomId)
-    .on('postgres_changes', {event:'INSERT', schema:'public', table:'sudoku_claims', filter:`room_id=eq.${roomId}`}, e=>h.onClaim?.(e.new))
+    .on('postgres_changes', {event:'*', schema:'public', table:'sudoku_claims', filter:`room_id=eq.${roomId}`}, e=>{ if(e.new && e.new.cell!=null) h.onClaim?.(e.new); })
     .on('postgres_changes', {event:'*', schema:'public', table:'sudoku_players', filter:`room_id=eq.${roomId}`}, e=>h.onPlayer?.(e.new))
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'sudoku_rooms', filter:`id=eq.${roomId}`}, e=>h.onRoom?.(e.new))
     .subscribe(status=>h.onStatus?.(status));
@@ -296,11 +337,11 @@ async function fetchRoom(roomId){
   if(error) throw error; return data;
 }
 async function fetchRoomStatus(roomId){
-  const { data, error } = await sb.from('sudoku_rooms').select('status,started_at,ends_at').eq('id', roomId).maybeSingle();
+  const { data, error } = await sb.from('sudoku_rooms').select('status,started_at,ends_at,puzzle,base_open,refreshes,last_block').eq('id', roomId).maybeSingle();
   if(error) throw error; return data;
 }
 async function fetchClaims(roomId){
-  const { data, error } = await sb.from('sudoku_claims').select('cell,player,prev_owner,value,by_num,created_at').eq('room_id', roomId).order('created_at');
+  const { data, error } = await sb.from('sudoku_claims').select('cell,player,prev_owner,value,by_num,solved,created_at').eq('room_id', roomId).order('created_at');
   if(error) throw error; return data;
 }
 async function fetchPlayers(roomId){

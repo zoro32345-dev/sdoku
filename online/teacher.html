@@ -56,6 +56,12 @@
   details.panel summary{cursor:pointer;font-size:18px;color:var(--muted)}
   details.panel .seats{max-height:24vh;margin:10px 0 4px}
   .small{font-size:17px;color:var(--muted);text-align:center}
+  .fire{background:#ffe1d6;color:#b3361a;white-space:nowrap}
+  .fire.on{background:var(--red);color:#fff;animation:burn 1.2s infinite}
+  @keyframes burn{50%{filter:brightness(1.15)}}
+  .banner{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:35;pointer-events:none}
+  .banner div{font-size:clamp(48px,8vw,110px);color:#fff;background:rgba(229,72,77,.92);padding:24px 48px;border-radius:30px;animation:bannerIn 2.6s forwards}
+  @keyframes bannerIn{0%{transform:scale(.3);opacity:0}15%{transform:scale(1.08);opacity:1}25%{transform:scale(1)}80%{opacity:1}100%{opacity:0}}
 
   @media (max-width:900px), (orientation:portrait){
     #play{flex-direction:column;justify-content:flex-start}
@@ -98,6 +104,12 @@
       </div>
     </div>
     <p class="info" id="mapInfo"></p>
+  </div>
+
+  <div class="card">
+    <h2>지도 크기</h2>
+    <div class="seg" id="segBoost"><button data-v="0">기본</button><button data-v="1" class="on">넓게</button><button data-v="2">아주 넓게</button></div>
+    <p class="info">넓을수록 회색(빈) 땅이 많아서 오래 넓혀 갈 수 있어요. 다 채운 판은 새 문제로 바뀌어서 끝없이 할 수 있어요.</p>
   </div>
 
   <div class="card">
@@ -146,7 +158,10 @@
     <div class="panel feed" id="feed"></div>
     <details class="panel"><summary>학생 연결 관리 (<span id="joinCount2">0</span>명 들어옴)</summary><div class="seats" id="seats2"></div></details>
     <div class="small">입장 코드 <b id="code2"></b> · 늦게 와도 들어올 수 있어요 · <span id="left"></span></div>
-    <button class="soft" id="btnFinish">여기서 끝내기</button>
+    <div class="row">
+      <button class="soft fire" id="btnOpen">🔥 본진 공격 시작!</button>
+      <button class="soft" id="btnFinish">여기서 끝내기</button>
+    </div>
   </div>
 </div>
 
@@ -173,7 +188,7 @@
 <script>
 /* ===== 상태 ===== */
 const LS = 'sudoku_host';          // 이 기기가 만든 방 (새로고침해도 이어서)
-const cfg = {mode:'solo', n:18, teams:5, students:18, diff:'easy', min:0};
+const cfg = {mode:'solo', n:18, teams:5, students:18, diff:'easy', min:0, boost:1};
 let H = null;                      // {room_id, code, host_key, skew}
 let V = null, players = [], unsub = null, tick = null, finishing = false, feedList = [];
 
@@ -186,9 +201,9 @@ const show = id => ['setup','lobby','play'].forEach(x=>$(x).hidden = x!==id);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, Math.round(Number(v)||a)));
 function updateInfo(){
   const owners = cfg.mode==='team' ? cfg.teams : cfg.n;
-  const k = blocksFor(owners);
+  const k = mapK(owners, cfg.boost);
   $('mapInfo').textContent = cfg.mode==='team'
-    ? `지도 ${9*k}×${9*k}칸 · 모둠 ${cfg.teams}개 · 학생은 1번~${cfg.students}번으로 들어와 자기 모둠을 골라요`
+    ? `지도 ${9*k}×${9*k}칸 (스도쿠 판 ${k*k}장) · 모둠 ${cfg.teams}개 · 학생은 1번~${cfg.students}번으로 들어와 자기 모둠을 골라요`
     : `지도 ${9*k}×${9*k}칸 (스도쿠 판 ${k*k}장) · 학생은 1번~${cfg.n}번으로 들어와요`;
 }
 function setN(v){ cfg.n=clamp(v,2,100); $('nInput').value=cfg.n; updateInfo(); }
@@ -207,7 +222,7 @@ function seg(id, key, cast, after){
 }
 seg('segMode','mode',String, ()=>{ $('soloBox').hidden = cfg.mode!=='solo'; $('teamBox').hidden = cfg.mode!=='team'; updateInfo(); });
 seg('segTeams','teams',Number, updateInfo);
-seg('segDiff','diff',String); seg('segTime','min',Number);
+seg('segDiff','diff',String); seg('segTime','min',Number); seg('segBoost','boost',Number, updateInfo);
 setN(cfg.n); setS(cfg.students);
 
 $('btnCreate').onclick = async ()=>{
@@ -216,12 +231,12 @@ $('btnCreate').onclick = async ()=>{
   await new Promise(r=>setTimeout(r,30));
   try{
     const owners = cfg.mode==='team' ? cfg.teams : cfg.n;
-    const m = buildMap(owners, cfg.diff);
+    const m = buildMap(owners, cfg.diff, cfg.boost);
     btn.textContent='방을 여는 중…';
     const res = await call('sudoku_create_room', {
       p_mode:cfg.mode, p_n:m.n, p_students:cfg.mode==='team' ? cfg.students : m.n,
       p_k:m.K, p_diff:cfg.diff, p_duration:cfg.min*60,
-      p_puzzle:m.puzzle, p_solution:m.sol, p_owner:m.owner, p_base:m.base,
+      p_puzzle:m.puzzle, p_solution:m.sol, p_owner:m.owner, p_base:m.base, p_mask_open:m.maskOpen,
     });
     H = {room_id:res.room_id, code:res.code, host_key:res.host_key, skew:0};
     save();
@@ -328,7 +343,8 @@ function renderPlay(){
     extra: V.team ? (p,s)=>` · ${s.members}명` : null,
     dim: p=>!joinedOwners.has(p),
   });
-  $('left').textContent = `남은 문제 ${blanksLeft(V)}칸`;
+  $('left').textContent = `빈칸 ${blanksLeft(V)}개 · 새 문제 ${V.room.refreshes||0}번`;
+  updateOpenBtn();
 }
 function updateClock(){
   const st = V.room.status;
@@ -357,6 +373,28 @@ async function finishGame(ask){
   finishing = false;
 }
 $('btnFinish').onclick = ()=>finishGame(true);
+$('btnOpen').onclick = async ()=>{
+  if(V.room.base_open) return;
+  if(!confirm('본진 공격을 시작할까요?\n모든 판이 새 문제로 바뀌고, 본진에도 빈칸이 생겨 빼앗을 수 있어요. (되돌릴 수 없어요)')) return;
+  $('btnOpen').disabled = true;
+  try{ await call('sudoku_open_bases', {p_room:H.room_id, p_host:H.host_key}); await resync(); }
+  catch(e){ toast('본진 공격을 열지 못했어요. 다시 눌러 주세요'); }
+  updateOpenBtn();
+};
+function updateOpenBtn(){
+  const on = !!V.room.base_open;
+  $('btnOpen').classList.toggle('on', on);
+  $('btnOpen').textContent = on ? '🔥 본진 공격 중!' : '🔥 본진 공격 시작!';
+  $('btnOpen').disabled = on || V.room.status!=='playing';
+}
+function bigBanner(text){
+  const b=document.createElement('div'); b.className='banner'; b.innerHTML=`<div>${esc(text)}</div>`;
+  document.body.appendChild(b); setTimeout(()=>b.remove(), 2700);
+}
+function addFeed(msg){
+  feedList.unshift(msg); feedList = feedList.slice(0,8);
+  $('feed').innerHTML = feedList.map(esc).map(s=>`<div>${s}</div>`).join('');
+}
 
 /* ===== 4. 결과 ===== */
 async function showEnd(){
@@ -377,13 +415,17 @@ function newGame(){
 }
 
 /* ===== 실시간 ===== */
+let renderQueued=false;
 function onClaim(cl){
   if(!V || !applyClaim(V, cl)) return;
-  if(!$('play').hidden){
-    renderPlay(); popCell($('board'), cl.cell);
-    feedList.unshift(claimMessage(cl)); feedList = feedList.slice(0,8);
-    $('feed').innerHTML = feedList.map(esc).map(s=>`<div>${s}</div>`).join('');
+  if($('play').hidden) return;
+  if(cl.solved===false){
+    // 새 문제로 바뀌는 칸들: 한꺼번에 오니 한 번만 다시 그린다
+    if(!renderQueued){ renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; renderPlay(); }); }
+    return;
   }
+  renderPlay(); popCell($('board'), cl.cell);
+  addFeed(claimMessage(cl));
 }
 function onPlayer(p){
   const i = players.findIndex(x=>x.num===p.num);
@@ -393,9 +435,16 @@ function onPlayer(p){
   if(!$('play').hidden) renderPlay();
 }
 function onRoom(r){
-  const before = V.room.status;
+  const before = V.room.status, beforeRef = V.room.refreshes||0, beforeOpen = !!V.room.base_open;
   V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
-  if(before!==r.status) route();
+  if(before!==r.status){ route(); return; }
+  const opened = r.base_open!==undefined && !!r.base_open && !beforeOpen;
+  const refreshed = r.refreshes!==undefined && r.refreshes>beforeRef;
+  if(opened || refreshed){
+    if(opened){ bigBanner('🔥 본진 공격 시작!'); addFeed('🔥 본진 공격 시작! 본진도 빼앗을 수 있어요'); }
+    else { addFeed('🔄 판을 다 채웠어요! 새 문제가 나왔어요'); }
+    resync().then(()=>{ if(!opened && !$('play').hidden) flashBlock($('board'), V, r.last_block); });
+  }
 }
 function onStatus(s){
   const ok = s==='SUBSCRIBED';
@@ -407,11 +456,12 @@ async function resync(){
   if(!H || !V) return;
   try{
     const [st, cls, ps] = await Promise.all([fetchRoomStatus(H.room_id), fetchClaims(H.room_id), fetchPlayers(H.room_id)]);
-    let changed=false; cls.forEach(cl=>{ if(applyClaim(V,cl)) changed=true; });
+    const statusChanged = st.status!==V.room.status;
+    rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block}, cls);
     players = ps;
     renderSeats();
     if(!$('play').hidden) renderPlay();
-    onRoom(st);
+    if(statusChanged) onRoom(st); else { V.room.ends_at = st.ends_at ?? V.room.ends_at; }
   }catch(e){ $('net').textContent='● 인터넷 연결을 확인해 주세요'; $('net').classList.add('bad'); }
 }
 
