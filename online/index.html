@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>스도쿠왕 쟁탈전</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* 입장 */
+  #join{max-width:480px;margin:0 auto;padding:28px 16px 40px}
+  .field{display:block;margin-bottom:18px}
+  .field span{display:block;font-size:22px;margin-bottom:8px}
+  .field input{width:100%;height:76px;font-family:inherit;font-size:44px;text-align:center;letter-spacing:8px;border:3px solid var(--ink);border-radius:var(--radius);background:#fff}
+  .err{color:var(--red);text-align:center;font-size:21px;min-height:30px;margin:12px 0 0}
+
+  /* 기다리기 */
+  #wait{max-width:520px;margin:0 auto;padding:32px 16px;text-align:center}
+  .me-badge{display:inline-flex;align-items:center;gap:12px;font-size:44px;padding:14px 30px;border-radius:999px;color:#fff;margin:10px 0 16px}
+  .wait-msg{font-size:24px;line-height:1.6}
+  .dots::after{content:'';animation:dots 1.5s steps(4) infinite}
+  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  #waitBoard{width:min(92vw,420px);margin:18px auto 0}
+
+  /* 게임 */
+  #play{display:flex;gap:16px;padding:10px;justify-content:center;align-items:center;min-height:100vh}
+  #play .board{width:min(94vh,62vw)}
+  .side{width:min(380px,34vw);display:flex;flex-direction:column;gap:10px}
+  .bar{display:flex;align-items:center;gap:10px;border-radius:16px;padding:10px 14px;color:#fff;background:var(--cur)}
+  .bar .who{font-size:28px;flex:1;white-space:nowrap}
+  .bar .stat{font-size:20px;text-align:right;line-height:1.25}
+  .bar .time{font-size:30px;background:rgba(0,0,0,.18);border-radius:12px;padding:2px 12px}
+  .bar .time.hurry{background:#fff;color:var(--red)}
+  .hint{text-align:center;font-size:20px;color:var(--muted);min-height:28px;margin:0}
+  .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;position:relative}
+  .pad button{aspect-ratio:1.5;font-size:clamp(28px,3.4vw,42px);background:#fff;color:var(--ink);box-shadow:0 4px 0 #d8d0c3}
+  .pad button:active{transform:translateY(3px);box-shadow:0 1px 0 #d8d0c3}
+  .pad.off button{opacity:.35;pointer-events:none}
+  .cool{position:absolute;inset:-4px;background:rgba(253,246,236,.92);border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:24px;color:var(--red);z-index:2}
+  .cool b{font-size:64px;font-weight:normal;line-height:1}
+  .mini{font-size:17px;color:var(--muted);text-align:center}
+
+  @media (max-width:900px), (orientation:portrait){
+    #play{flex-direction:column;justify-content:flex-start;gap:8px}
+    #play .board{width:min(98vw,64vh)}
+    .side{width:min(98vw,640px)}
+    .pad{grid-template-columns:repeat(9,1fr);gap:5px}
+    .pad button{aspect-ratio:auto;padding:14px 0;font-size:28px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 1. 입장 ===== -->
+<div id="join" hidden>
+  <h1>👑 스도쿠<span>왕</span> 쟁탈전</h1>
+  <p class="sub">선생님 화면의 입장 코드와 내 번호를 넣어요</p>
+  <div class="card">
+    <label class="field"><span>입장 코드 (4자리)</span>
+      <input id="inCode" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000"></label>
+    <label class="field"><span>내 번호</span>
+      <input id="inNum" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="번호"></label>
+    <button class="big" id="btnJoin">들어가기</button>
+    <p class="err" id="joinErr"></p>
+  </div>
+  <div class="card">
+    <h2>규칙</h2>
+    <ul style="margin:0;padding-left:22px;font-size:19px;line-height:1.7">
+      <li>번호표가 붙은 줄무늬 3×3이 내 <b style="color:var(--red);font-weight:normal">본진</b>이에요.</li>
+      <li>점선 칸을 골라 숫자를 눌러요. 차례 없이 모두 동시에!</li>
+      <li>⚔️ 내 땅 옆의 친구 땅·회색 땅을 맞히면 내 땅이 돼요.</li>
+      <li>🛡️ 내 땅 빈칸을 맞히면 다시는 못 뺏겨요.</li>
+      <li>같은 칸은 먼저 맞힌 사람 것! 틀리면 5초 쉬어요.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== 2. 기다리기 ===== -->
+<div id="wait" hidden>
+  <div class="me-badge" id="meBadge"></div>
+  <p class="wait-msg">들어왔어요!<br>선생님이 시작하면 게임이 열려요<span class="dots"></span></p>
+  <p class="mini">아래 지도에서 번호표가 붙은 줄무늬 칸이 내 본진이에요.</p>
+  <div class="board" id="waitBoard"></div>
+  <p style="margin-top:18px"><button class="soft" id="btnLeave">다른 번호로 들어가기</button></p>
+</div>
+
+<!-- ===== 3. 게임 ===== -->
+<div id="play" hidden>
+  <div class="board" id="board"></div>
+  <div class="side">
+    <div class="bar"><span class="who" id="who"></span><span class="stat" id="stat"></span><span class="time" id="time">0:00</span></div>
+    <p class="hint" id="hint"></p>
+    <div class="pad off" id="pad"><div class="cool" id="cool" hidden><span>틀렸어요! 잠깐 쉬어요</span><b id="coolN">5</b></div></div>
+    <p class="mini" id="left"></p>
+  </div>
+</div>
+
+<!-- ===== 4. 결과 ===== -->
+<div class="overlay" id="end" hidden>
+  <div class="endbox">
+    <div class="crown">👑</div>
+    <h2 id="endTitle"></h2>
+    <p id="myResult" style="font-size:24px;margin:0 0 12px"></p>
+    <div class="ranks" id="ranks"></div>
+    <button class="big" id="btnPeek">지도 보기</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="net" id="net"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="common.js"></script>
+<script>
+/* ===== 상태 ===== */
+const LS = 'sudoku_player';   // {code, num, token, room_id} — 새로고침해도 다시 들어오게
+let P = null;                 // 내 입장 정보
+let V = null, me = -1, sel = -1, players = [], unsub = null, tick = null, skew = 0;
+let coolUntil = 0, busy = false;
+
+const save = () => { try{ localStorage.setItem(LS, JSON.stringify(P)); }catch(e){} };
+const load = () => { try{ return JSON.parse(localStorage.getItem(LS)); }catch(e){ return null; } };
+const forget = () => { try{ localStorage.removeItem(LS); }catch(e){} };
+const show = id => ['join','wait','play'].forEach(x=>$(x).hidden = x!==id);
+
+/* ===== 1. 입장 ===== */
+// 주소에 ?code=1234 가 있으면 코드 칸을 채워 둔다
+const qCode = new URLSearchParams(location.search).get('code');
+if(qCode) $('inCode').value = qCode.replace(/\D/g,'').slice(0,4);
+$('inCode').addEventListener('input', e=>{ e.target.value=e.target.value.replace(/\D/g,'').slice(0,4); if(e.target.value.length===4) $('inNum').focus(); });
+$('inNum').addEventListener('input', e=>{ e.target.value=e.target.value.replace(/\D/g,'').slice(0,3); });
+$('inNum').addEventListener('keydown', e=>{ if(e.key==='Enter') $('btnJoin').click(); });
+
+$('btnJoin').onclick = async ()=>{
+  const code=$('inCode').value, num=Number($('inNum').value);
+  $('joinErr').textContent='';
+  if(code.length!==4){ $('joinErr').textContent='입장 코드 4자리를 넣어 주세요'; return; }
+  if(!num){ $('joinErr').textContent='내 번호를 넣어 주세요'; return; }
+  $('btnJoin').disabled=true;
+  try{ await tryJoin(code, num, null); }
+  finally{ $('btnJoin').disabled=false; }
+};
+async function tryJoin(code, num, token){
+  let res;
+  try{ res = await call('sudoku_join', {p_code:code, p_num:num, p_token:token}); }
+  catch(e){ $('joinErr').textContent='인터넷 연결을 확인하고 다시 눌러 주세요'; return false; }
+  if(res.r==='no_room'){ $('joinErr').textContent='그런 방이 없어요. 코드를 다시 확인해요'; return false; }
+  if(res.r==='bad_num'){ $('joinErr').textContent=`번호는 1번부터 ${res.n}번까지예요`; return false; }
+  if(res.r==='taken'){ $('joinErr').textContent=`${num}번은 이미 다른 기기로 들어와 있어요. 선생님께 말해 주세요`; return false; }
+  P = {code, num, token:res.token, room_id:res.room_id}; save();
+  await enterRoom();
+  return true;
+}
+$('btnLeave').onclick = ()=>{ leave(); };
+function leave(msg){
+  unsub?.(); unsub=null; clearInterval(tick);
+  forget(); P=null; V=null; sel=-1;
+  $('end').hidden=true; show('join');
+  $('inCode').value = ''; $('inNum').value='';
+  if(msg) $('joinErr').textContent = msg;
+}
+
+/* ===== 방 들어가기 ===== */
+async function enterRoom(){
+  const room = await fetchRoom(P.room_id);
+  if(!room){ leave('방이 닫혔어요'); return; }
+  V = makeView(room); me = P.num-1; sel=-1;
+  skew = await measureSkew();
+  (await fetchClaims(P.room_id)).forEach(cl=>applyClaim(V,cl));
+  players = await fetchPlayers(P.room_id);
+  document.documentElement.style.setProperty('--cur', V.colors[me].main);
+  unsub?.();
+  unsub = subscribeRoom(P.room_id, {onClaim, onPlayer, onRoom, onStatus, resync});
+  route();
+}
+function route(){
+  const st=V.room.status;
+  if(st==='lobby') showWait();
+  else { showPlay(); if(st==='ended') showEnd(); }
+}
+
+/* ===== 2. 기다리기 ===== */
+function showWait(){
+  show('wait');
+  const b=$('meBadge'); b.style.background=V.colors[me].main; b.textContent=`${P.num}번`;
+  buildBoard($('waitBoard'), V, null); renderBoard($('waitBoard'), V);
+  $('waitBoard').style.width = V.K>1 ? 'min(94vw,520px)' : 'min(92vw,420px)';
+}
+
+/* ===== 3. 게임 ===== */
+function showPlay(){
+  show('play');
+  buildBoard($('board'), V, pick);
+  buildPad();
+  render();
+  clearInterval(tick); tick=setInterval(updateClock, 250); updateClock();
+}
+function buildPad(){
+  const pad=$('pad'); [...pad.querySelectorAll('button')].forEach(b=>b.remove());
+  for(let d=1;d<=9;d++){ const b=document.createElement('button'); b.textContent=d; b.onclick=()=>answer(d); pad.appendChild(b); }
+}
+const playing = () => V && V.room.status==='playing';
+function render(){
+  if(sel>=0 && !legalFor(V,me,sel)) sel=-1;   // 다른 친구가 먼저 가져간 칸이면 선택 풀기
+  renderBoard($('board'), V, {me, sel, playing:playing() && Date.now()>=coolUntil});
+  const c=countsOf(V), mine=c[me];
+  const rank = 1 + c.filter(x=>x>mine).length;
+  $('who').innerHTML = `${P.num}번`;
+  $('stat').innerHTML = `${mine}칸<br>${rank}등`;
+  $('pad').classList.toggle('off', sel<0);
+  if(!playing()) $('hint').textContent = '게임이 끝났어요';
+  else if(sel<0) $('hint').textContent = '점선 칸 하나를 골라요';
+  else {
+    const o=V.owner[sel];
+    $('hint').textContent = o===me ? '🛡️ 수비! 알맞은 숫자를 눌러요' : (o<0 ? '⚔️ 빈 땅 차지! 숫자를 눌러요' : `⚔️ ${nm(o)} 땅 공격! 숫자를 눌러요`);
+  }
+  $('left').textContent = `남은 문제 ${blanksLeft(V)}칸`;
+}
+function pick(i){
+  if(!playing() || Date.now()<coolUntil || !legalFor(V,me,i)) return;
+  sel = sel===i ? -1 : i; render();
+}
+async function answer(d){
+  if(!playing() || sel<0 || busy || Date.now()<coolUntil) return;
+  const cell=sel; busy=true;
+  let res;
+  try{ res = await call('sudoku_claim', {p_room:P.room_id, p_num:P.num, p_token:P.token, p_cell:cell, p_value:d}); }
+  catch(e){ busy=false; toast('인터넷 연결을 확인해 주세요'); return; }
+  busy=false;
+  switch(res.r){
+    case 'ok':
+      sel=-1;
+      applyClaim(V, {cell, player:me, value:d, prev_owner:res.prev});
+      render(); popCell($('board'), cell);
+      toast(res.kind==='def' ? '🛡️ 수비 성공! 이제 안전해요' : res.kind==='neutral' ? '🚩 빈 땅을 차지했어요!' : `⚔️ ${nm(res.prev)} 땅을 빼앗았어요!`);
+      break;
+    case 'wrong':
+      sel=-1; wrongShake(cell); startCool(5); break;
+    case 'cooldown':
+      startCool(res.wait||5); break;
+    case 'taken':
+      sel=-1; toast('아깝다! 다른 친구가 먼저 맞혔어요'); resync(); break;
+    case 'illegal':
+      sel=-1; toast('이 칸은 지금 고를 수 없어요'); resync(); break;
+    case 'bad_player':
+      leave('선생님이 이 기기의 연결을 풀었어요. 다시 들어와 주세요'); break;
+    default:  // not_playing, time_up, no_room
+      resync();
+  }
+}
+function wrongShake(cell){
+  const d=$('board').children[cell]; d.classList.remove('wrong'); void d.offsetWidth; d.classList.add('wrong');
+  setTimeout(()=>d.classList.remove('wrong'), 600);
+}
+function startCool(sec){
+  coolUntil = Date.now()+sec*1000;
+  $('cool').hidden=false; render();
+  const t=setInterval(()=>{
+    const left=Math.ceil((coolUntil-Date.now())/1000);
+    $('coolN').textContent=Math.max(0,left);
+    if(left<=0){ clearInterval(t); $('cool').hidden=true; render(); }
+  }, 100);
+}
+function updateClock(){
+  if(!V) return;
+  const st=V.room.status, el=$('time');
+  if(st!=='playing' || !V.room.ends_at){ el.textContent = st==='ended' ? '끝!' : '0:00'; return; }
+  const left=(Date.parse(V.room.ends_at) - (Date.now()+skew))/1000;
+  el.textContent=fmtTime(left); el.classList.toggle('hurry', left<=30);
+  if(left<=-3) resync(); // 선생님 화면이 끝내면 알림이 오지만, 혹시 놓쳤을 때
+}
+
+/* ===== 4. 결과 ===== */
+async function showEnd(){
+  clearInterval(tick); updateClock(); sel=-1; render();
+  players = await fetchPlayers(P.room_id).catch(()=>players);
+  const c=countsOf(V), rank=1+c.filter(x=>x>c[me]).length;
+  $('endTitle').textContent = kingsTitle(V);
+  $('myResult').textContent = rank===1 ? `🎉 ${P.num}번, 내가 스도쿠왕! (${c[me]}칸)` : `${P.num}번은 ${rank}등 · ${c[me]}칸`;
+  $('ranks').innerHTML = rankingHtml(V, players, me);
+  $('end').hidden=false;
+  const mine=$('ranks').querySelector('.rank.me'); if(mine) mine.scrollIntoView({block:'center'});
+}
+$('btnPeek').onclick = ()=>{ $('end').hidden=true; setTimeout(()=>{ if(V && V.room.status==='ended') $('end').hidden=false; }, 8000); };
+
+/* ===== 실시간 ===== */
+function onClaim(cl){
+  if(!V || !applyClaim(V, cl)) return;
+  if(!$('play').hidden){
+    render(); popCell($('board'), cl.cell);
+    if(cl.prev_owner===me && cl.player!==me) toast(`😱 ${nm(cl.player)}에게 땅을 빼앗겼어요!`);
+  } else if(!$('wait').hidden) renderBoard($('waitBoard'), V);
+}
+function onPlayer(p){
+  const i=players.findIndex(x=>x.num===p.num);
+  if(i>=0) players[i]={...players[i],...p}; else players.push(p);
+}
+function onRoom(r){
+  const before=V.room.status;
+  V.room.status=r.status; if(r.started_at) V.room.started_at=r.started_at; if(r.ends_at) V.room.ends_at=r.ends_at;
+  if(before!==r.status){
+    if(r.status==='playing') toast('시작! 점선 칸을 골라요', 2200);
+    route();
+  }
+}
+function onStatus(s){
+  const ok = s==='SUBSCRIBED';
+  $('net').textContent = ok ? '● 연결됨' : '● 연결 확인 중…';
+  $('net').classList.toggle('bad', !ok);
+  if(ok) resync();
+}
+let syncing=false;
+async function resync(){
+  if(!P || !V || syncing) return;
+  syncing=true;
+  try{
+    const [st, cls] = await Promise.all([fetchRoomStatus(P.room_id), fetchClaims(P.room_id)]);
+    if(!st){ leave('방이 닫혔어요'); return; }
+    let changed=false; cls.forEach(cl=>{ if(applyClaim(V,cl)) changed=true; });
+    if(changed && !$('play').hidden) render();
+    onRoom(st);
+  }catch(e){ $('net').textContent='● 인터넷 연결을 확인해 주세요'; $('net').classList.add('bad'); }
+  finally{ syncing=false; }
+}
+
+/* ===== 키보드 (크롬북용) ===== */
+document.addEventListener('keydown', e=>{
+  if($('play').hidden) return;
+  if(/^[1-9]$/.test(e.key)) answer(Number(e.key));
+  if(e.key==='Escape'){ sel=-1; render(); }
+});
+
+/* ===== 처음 열 때: 전에 들어온 적이 있으면 다시 들어가기 ===== */
+(async ()=>{
+  const saved = load();
+  if(saved && (!qCode || qCode===saved.code)){
+    $('inCode').value=saved.code; $('inNum').value=saved.num;
+    const ok = await tryJoin(saved.code, saved.num, saved.token);
+    if(ok) return;
+    forget();
+  }
+  show('join');
+})();
+</script>
+</body>
+</html>

@@ -201,6 +201,7 @@ async function enterRoom(){
   const room = await fetchRoom(H.room_id);
   if(!room){ forget(); H=null; show('setup'); return; }
   V = makeView(room);
+  H.skew = await measureSkew(); save();
   (await fetchClaims(H.room_id)).forEach(cl=>applyClaim(V,cl));
   players = await fetchPlayers(H.room_id);
   unsub?.();
@@ -221,7 +222,8 @@ function showLobby(){
   const url = studentUrl();
   $('url').textContent = url;
   $('qr').innerHTML = '';
-  try{ new QRCode($('qr'), {text:url, width:200, height:200}); }catch(e){}
+  // QR로 들어오면 입장 코드가 미리 채워진다
+  try{ new QRCode($('qr'), {text:`${url}?code=${H.code}`, width:200, height:200}); }catch(e){}
   $('urlNote').textContent = location.protocol==='file:' || location.hostname==='localhost'
     ? '⚠️ 지금은 이 컴퓨터에서만 열려요. 인터넷에 올린 뒤에 학생 기기에서 들어올 수 있어요.' : '태블릿 카메라로 QR을 찍어도 돼요.';
   renderSeats();
@@ -251,11 +253,9 @@ $('btnCancel').onclick = async ()=>{
 $('btnStart').onclick = async ()=>{
   $('btnStart').disabled = true;
   try{
-    const t0 = Date.now();
     await call('sudoku_start', {p_room:H.room_id, p_host:H.host_key});
     const st = await fetchRoomStatus(H.room_id);
-    // 이 컴퓨터 시계와 데이터베이스 시계의 차이 (남은 시간을 정확히 보여 주려고)
-    H.skew = Date.parse(st.started_at) - (t0 + Date.now())/2; save();
+    H.skew = await measureSkew(); save();
     Object.assign(V.room, st);
     route();
   }catch(e){ toast('시작하지 못했어요. 다시 눌러 주세요'); $('btnStart').disabled=false; }

@@ -259,4 +259,12 @@ function claimMessage(cl){
   if(prev<0) return `🚩 ${nm(me)}, 빈 땅 차지`;
   return `⚔️ ${nm(me)}이(가) ${nm(prev)} 땅을 빼앗았어요!`;
 }
+// 이 기기 시계와 데이터베이스 시계의 차이(밀리초). 남은 시간을 모든 기기에서 똑같이 보여 주려고.
+async function measureSkew(){
+  try{
+    const t0 = Date.now();
+    const now = await call('sudoku_now', {});
+    return Date.parse(now) - (t0 + Date.now())/2;
+  }catch(e){ return 0; }
+}
 const fmtTime = s => { s=Math.max(0,Math.ceil(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
