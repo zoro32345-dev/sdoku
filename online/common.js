@@ -9,7 +9,10 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-const nm = p => `${p+1}번`;
+// 땅 주인 이름: 개인전이면 "3번", 모둠 대항이면 "3모둠" (makeView가 모드를 정한다)
+let OWNER_UNIT = '번';
+const nm = p => `${p+1}${OWNER_UNIT}`;
+const MODE_LABEL = {solo:'개인전', team:'모둠 대항'};
 
 async function call(fn, args){
   const { data, error } = await sb.rpc(fn, args);
@@ -132,8 +135,11 @@ function buildMap(n, diff){
 // room: sudoku_rooms 한 줄. claims: sudoku_claims 여러 줄
 function makeView(room){
   const W=room.k*9, C=W*W;
+  const mode = room.mode || 'solo';
+  OWNER_UNIT = mode==='team' ? '모둠' : '번';
   const v = {
-    room, n:room.n, K:room.k, W, C,
+    room, mode, team: mode==='team', students: room.students || room.n,
+    n:room.n, K:room.k, W, C,
     colors: makeColors(room.n),
     owner: room.init_owner.slice(),
     value: room.puzzle.slice(),
@@ -204,15 +210,70 @@ function popCell(el, i){
 }
 
 /* ===== 순위 ===== */
-function rankingHtml(v, players, meP=-1){
-  const c=countsOf(v), stat=new Map(players.map(p=>[p.num-1,p]));
+// 땅 주인(학생 또는 모둠)별 공격·수비 합계
+function statsByOwner(v, players){
+  const s = Array.from({length:v.n},()=>({atk:0,def:0,members:0}));
+  players.forEach(pl=>{ const t = pl.team ?? (pl.num-1); if(s[t]){ s[t].atk+=pl.atk||0; s[t].def+=pl.def||0; s[t].members++; } });
+  return s;
+}
+function rankOrder(v){
+  const c=countsOf(v);
   const order=[...Array(v.n).keys()].sort((a,b)=>c[b]-c[a] || a-b);
-  let rank=0;
-  return order.map((p,k)=>{
-    if(k===0 || c[p]!==c[order[k-1]]) rank=k+1;
-    const label=['','🥇','🥈','🥉'][rank] || `${rank}위`, s=stat.get(p) || {atk:0,def:0};
-    return `<div class="rank ${p===meP?'me':''}"><b>${label}</b>${dotHtml(v.colors,p)}<span class="nm">${nm(p)}</span><span>${c[p]}칸 · ⚔️${s.atk} 🛡️${s.def}</span></div>`;
-  }).join('');
+  const ranks=[]; order.forEach((p,k)=>{ ranks[p] = (k>0 && c[p]===c[order[k-1]]) ? ranks[order[k-1]] : k+1; });
+  return {c, order, ranks};
+}
+const medal = r => ['','🥇','🥈','🥉'][r] || `${r}위`;
+function rankingHtml(v, players, meP=-1){
+  const {c, order, ranks}=rankOrder(v), st=statsByOwner(v, players);
+  return order.map(p=>`<div class="rank ${p===meP?'me':''}"><b>${medal(ranks[p])}</b>${dotHtml(v.colors,p)}<span class="nm">${nm(p)}</span><span>${c[p]}칸 · ⚔️${st[p].atk} 🛡️${st[p].def}</span></div>`).join('');
+}
+// 모둠 대항일 때: 가장 많이 푼 학생 3명
+function mvpHtml(v, players){
+  const list = players.map(p=>({...p, score:(p.atk||0)+(p.def||0)})).filter(p=>p.score>0)
+    .sort((a,b)=>b.score-a.score || b.atk-a.atk || a.num-b.num).slice(0,3);
+  if(!list.length) return '';
+  return `<div class="mvp"><b>🌟 우리 반 MVP</b>${list.map((p,k)=>`<span>${['🥇','🥈','🥉'][k]} ${p.num}번 <small>(${nm(p.team)}) ${p.score}칸</small></span>`).join('')}</div>`;
+}
+
+/* 실시간 순위표: 순서가 바뀌면 줄이 미끄러지듯 움직인다
+   opt: {meP: 강조할 주인, limit: 위에서 몇 줄까지, extra: (p)=>추가 글자, onClick} */
+function renderLiveRank(el, v, players, opt={}){
+  const {c, order, ranks} = rankOrder(v), st = statsByOwner(v, players);
+  const max = Math.max(1, ...c);
+  let show = order.slice(0, opt.limit || order.length);
+  if(opt.meP>=0 && !show.includes(opt.meP)) show = show.slice(0, show.length-1).concat(opt.meP);
+  // 1) 지금 위치 기억
+  const before = new Map([...el.children].map(r=>[r.dataset.p, r.getBoundingClientRect().top]));
+  // 2) 줄 만들기·고치기
+  const keep = new Set(show.map(String));
+  [...el.children].forEach(r=>{ if(!keep.has(r.dataset.p)) r.remove(); });
+  show.forEach(p=>{
+    let row = el.querySelector(`[data-p="${p}"]`);
+    if(!row){
+      row = document.createElement('div'); row.className='lrow'; row.dataset.p=p;
+      row.innerHTML = `<b class="rk"></b>${dotHtml(v.colors,p)}<span class="nm"></span><span class="bar"><i style="background:${v.colors[p].main}"></i></span><span class="ct"></span>`;
+      if(opt.onClick) row.onclick = ()=>opt.onClick(p);
+      el.appendChild(row);
+    }
+    const prevCount = Number(row.dataset.c ?? c[p]);
+    row.querySelector('.rk').textContent = medal(ranks[p]);
+    row.querySelector('.nm').textContent = nm(p) + (opt.extra ? opt.extra(p, st[p]) : '');
+    row.querySelector('.bar i').style.width = (c[p]/max*100)+'%';
+    row.querySelector('.ct').textContent = c[p];
+    row.classList.toggle('me', p===opt.meP);
+    row.classList.toggle('dim', !!opt.dim && opt.dim(p));
+    if(c[p]>prevCount){ row.classList.remove('up'); void row.offsetWidth; row.classList.add('up'); }
+    if(c[p]<prevCount){ row.classList.remove('down'); void row.offsetWidth; row.classList.add('down'); }
+    row.dataset.c = c[p];
+    el.appendChild(row); // 순서대로 다시 붙이기
+  });
+  // 3) 예전 위치에서 새 위치로 움직이기
+  [...el.children].forEach(r=>{
+    const old = before.get(r.dataset.p); if(old===undefined) return;
+    const dy = old - r.getBoundingClientRect().top; if(!dy) return;
+    r.style.transition='none'; r.style.transform=`translateY(${dy}px)`;
+    requestAnimationFrame(()=>{ r.style.transition='transform .45s ease'; r.style.transform=''; });
+  });
 }
 function kingsTitle(v){
   const c=countsOf(v), top=Math.max(...c), kings=[...Array(v.n).keys()].filter(p=>c[p]===top);
@@ -239,11 +300,11 @@ async function fetchRoomStatus(roomId){
   if(error) throw error; return data;
 }
 async function fetchClaims(roomId){
-  const { data, error } = await sb.from('sudoku_claims').select('cell,player,prev_owner,value,created_at').eq('room_id', roomId).order('created_at');
+  const { data, error } = await sb.from('sudoku_claims').select('cell,player,prev_owner,value,by_num,created_at').eq('room_id', roomId).order('created_at');
   if(error) throw error; return data;
 }
 async function fetchPlayers(roomId){
-  const { data, error } = await sb.from('sudoku_players').select('num,atk,def,miss,joined_at').eq('room_id', roomId).order('num');
+  const { data, error } = await sb.from('sudoku_players').select('num,team,atk,def,miss,joined_at').eq('room_id', roomId).order('num');
   if(error) throw error; return data;
 }
 
@@ -255,9 +316,10 @@ function toast(msg, ms=1800){
 }
 function claimMessage(cl){
   const me=cl.player, prev=cl.prev_owner;
-  if(prev===me) return `🛡️ ${nm(me)} 수비 성공`;
-  if(prev<0) return `🚩 ${nm(me)}, 빈 땅 차지`;
-  return `⚔️ ${nm(me)}이(가) ${nm(prev)} 땅을 빼앗았어요!`;
+  const who = OWNER_UNIT==='모둠' && cl.by_num ? `${nm(me)} ${cl.by_num}번` : nm(me);
+  if(prev===me) return `🛡️ ${who} 수비 성공`;
+  if(prev<0) return `🚩 ${who}, 빈 땅 차지`;
+  return `⚔️ ${who}이(가) ${nm(prev)} 땅을 빼앗았어요!`;
 }
 // 이 기기 시계와 데이터베이스 시계의 차이(밀리초). 남은 시간을 모든 기기에서 똑같이 보여 주려고.
 async function measureSkew(){

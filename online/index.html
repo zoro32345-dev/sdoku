@@ -14,6 +14,11 @@
   .field span{display:block;font-size:22px;margin-bottom:8px}
   .field input{width:100%;height:76px;font-family:inherit;font-size:44px;text-align:center;letter-spacing:8px;border:3px solid var(--ink);border-radius:var(--radius);background:#fff}
   .err{color:var(--red);text-align:center;font-size:21px;min-height:30px;margin:12px 0 0}
+  .teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+  .teams button{padding:20px 0;font-size:28px;color:#fff;box-shadow:0 4px 0 rgba(0,0,0,.18)}
+  #mini{margin-top:4px}
+  #mini .lrow{font-size:17px;padding:3px 8px}
+  #mini .lrow .rk{width:32px}
 
   /* 기다리기 */
   #wait{max-width:520px;margin:0 auto;padding:32px 16px;text-align:center}
@@ -64,6 +69,10 @@
     <button class="big" id="btnJoin">들어가기</button>
     <p class="err" id="joinErr"></p>
   </div>
+  <div class="card" id="teamPick" hidden>
+    <h2>모둠 대항전이에요! 내 모둠을 골라요</h2>
+    <div class="teams" id="teamBtns"></div>
+  </div>
   <div class="card">
     <h2>규칙</h2>
     <ul style="margin:0;padding-left:22px;font-size:19px;line-height:1.7">
@@ -92,6 +101,7 @@
     <div class="bar"><span class="who" id="who"></span><span class="stat" id="stat"></span><span class="time" id="time">0:00</span></div>
     <p class="hint" id="hint"></p>
     <div class="pad off" id="pad"><div class="cool" id="cool" hidden><span>틀렸어요! 잠깐 쉬어요</span><b id="coolN">5</b></div></div>
+    <div class="live" id="mini"></div>
     <p class="mini" id="left"></p>
   </div>
 </div>
@@ -102,6 +112,7 @@
     <div class="crown">👑</div>
     <h2 id="endTitle"></h2>
     <p id="myResult" style="font-size:24px;margin:0 0 12px"></p>
+    <div id="mvp"></div>
     <div class="ranks" id="ranks"></div>
     <button class="big" id="btnPeek">지도 보기</button>
   </div>
@@ -138,20 +149,36 @@ $('btnJoin').onclick = async ()=>{
   if(code.length!==4){ $('joinErr').textContent='입장 코드 4자리를 넣어 주세요'; return; }
   if(!num){ $('joinErr').textContent='내 번호를 넣어 주세요'; return; }
   $('btnJoin').disabled=true;
-  try{ await tryJoin(code, num, null); }
+  try{ await tryJoin(code, num, null, null); }
   finally{ $('btnJoin').disabled=false; }
 };
-async function tryJoin(code, num, token){
+async function tryJoin(code, num, team, token){
   let res;
-  try{ res = await call('sudoku_join', {p_code:code, p_num:num, p_token:token}); }
+  $('teamPick').hidden = true;
+  try{ res = await call('sudoku_join', {p_code:code, p_num:num, p_team:team, p_token:token}); }
   catch(e){ $('joinErr').textContent='인터넷 연결을 확인하고 다시 눌러 주세요'; return false; }
   if(res.r==='no_room'){ $('joinErr').textContent='그런 방이 없어요. 코드를 다시 확인해요'; return false; }
   if(res.r==='bad_num'){ $('joinErr').textContent=`번호는 1번부터 ${res.n}번까지예요`; return false; }
   if(res.r==='taken'){ $('joinErr').textContent=`${num}번은 이미 다른 기기로 들어와 있어요. 선생님께 말해 주세요`; return false; }
-  P = {code, num, token:res.token, room_id:res.room_id}; save();
+  if(res.r==='need_team'){ showTeamPick(code, num, res.teams); return false; }
+  P = {code, num, token:res.token, room_id:res.room_id, team:res.team}; save();
   await enterRoom();
   return true;
 }
+// 모둠 대항: 모둠 고르기 버튼
+function showTeamPick(code, num, teams){
+  const cols = makeColors(teams);
+  $('teamBtns').innerHTML = cols.map((c,t)=>`<button data-t="${t+1}" style="background:${c.main}">${t+1}모둠</button>`).join('');
+  $('teamPick').hidden = false;
+  $('teamPick').scrollIntoView({behavior:'smooth'});
+  $('teamBtns').onclick = async e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...$('teamBtns').children].forEach(x=>x.disabled=true);
+    const ok = await tryJoin(code, num, Number(b.dataset.t), null);
+    if(!ok) [...$('teamBtns').children].forEach(x=>x.disabled=false);
+  };
+}
+const myName = () => V && V.team ? `${me+1}모둠 · ${P.num}번` : `${P.num}번`;
 $('btnLeave').onclick = ()=>{ leave(); };
 function leave(msg){
   unsub?.(); unsub=null; clearInterval(tick);
@@ -165,7 +192,7 @@ function leave(msg){
 async function enterRoom(){
   const room = await fetchRoom(P.room_id);
   if(!room){ leave('방이 닫혔어요'); return; }
-  V = makeView(room); me = P.num-1; sel=-1;
+  V = makeView(room); me = P.team ?? (P.num-1); sel=-1;
   skew = await measureSkew();
   (await fetchClaims(P.room_id)).forEach(cl=>applyClaim(V,cl));
   players = await fetchPlayers(P.room_id);
@@ -183,7 +210,7 @@ function route(){
 /* ===== 2. 기다리기 ===== */
 function showWait(){
   show('wait');
-  const b=$('meBadge'); b.style.background=V.colors[me].main; b.textContent=`${P.num}번`;
+  const b=$('meBadge'); b.style.background=V.colors[me].main; b.textContent=myName();
   buildBoard($('waitBoard'), V, null); renderBoard($('waitBoard'), V);
   $('waitBoard').style.width = V.K>1 ? 'min(94vw,520px)' : 'min(92vw,420px)';
 }
@@ -206,8 +233,9 @@ function render(){
   renderBoard($('board'), V, {me, sel, playing:playing() && Date.now()>=coolUntil});
   const c=countsOf(V), mine=c[me];
   const rank = 1 + c.filter(x=>x>mine).length;
-  $('who').innerHTML = `${P.num}번`;
-  $('stat').innerHTML = `${mine}칸<br>${rank}등`;
+  $('who').textContent = myName();
+  $('stat').innerHTML = `${mine}칸<br>${V.team?'우리 모둠 ':''}${rank}등`;
+  renderLiveRank($('mini'), V, players, {meP:me, limit:5});
   $('pad').classList.toggle('off', sel<0);
   if(!playing()) $('hint').textContent = '게임이 끝났어요';
   else if(sel<0) $('hint').textContent = '점선 칸 하나를 골라요';
@@ -265,7 +293,8 @@ function startCool(sec){
 function updateClock(){
   if(!V) return;
   const st=V.room.status, el=$('time');
-  if(st!=='playing' || !V.room.ends_at){ el.textContent = st==='ended' ? '끝!' : '0:00'; return; }
+  if(st!=='playing'){ el.textContent = st==='ended' ? '끝!' : '0:00'; return; }
+  if(!V.room.ends_at){ el.textContent = '⏱ ' + fmtTime((Date.now()+skew - Date.parse(V.room.started_at))/1000); return; } // 무제한
   const left=(Date.parse(V.room.ends_at) - (Date.now()+skew))/1000;
   el.textContent=fmtTime(left); el.classList.toggle('hurry', left<=30);
   if(left<=-3) resync(); // 선생님 화면이 끝내면 알림이 오지만, 혹시 놓쳤을 때
@@ -276,8 +305,12 @@ async function showEnd(){
   clearInterval(tick); updateClock(); sel=-1; render();
   players = await fetchPlayers(P.room_id).catch(()=>players);
   const c=countsOf(V), rank=1+c.filter(x=>x>c[me]).length;
+  const meP = players.find(p=>p.num===P.num) || {atk:0,def:0};
   $('endTitle').textContent = kingsTitle(V);
-  $('myResult').textContent = rank===1 ? `🎉 ${P.num}번, 내가 스도쿠왕! (${c[me]}칸)` : `${P.num}번은 ${rank}등 · ${c[me]}칸`;
+  $('myResult').textContent = V.team
+    ? (rank===1 ? `🎉 우리 ${me+1}모둠이 스도쿠왕! (${c[me]}칸)` : `우리 ${me+1}모둠은 ${rank}등 · ${c[me]}칸`) + ` · 내가 푼 칸 ${meP.atk+meP.def}개`
+    : (rank===1 ? `🎉 ${P.num}번, 내가 스도쿠왕! (${c[me]}칸)` : `${P.num}번은 ${rank}등 · ${c[me]}칸`);
+  $('mvp').innerHTML = V.team ? mvpHtml(V, players) : '';
   $('ranks').innerHTML = rankingHtml(V, players, me);
   $('end').hidden=false;
   const mine=$('ranks').querySelector('.rank.me'); if(mine) mine.scrollIntoView({block:'center'});
@@ -289,16 +322,17 @@ function onClaim(cl){
   if(!V || !applyClaim(V, cl)) return;
   if(!$('play').hidden){
     render(); popCell($('board'), cl.cell);
-    if(cl.prev_owner===me && cl.player!==me) toast(`😱 ${nm(cl.player)}에게 땅을 빼앗겼어요!`);
+    if(cl.prev_owner===me && cl.player!==me) toast(`😱 ${nm(cl.player)}에게 ${V.team?'우리 모둠 ':''}땅을 빼앗겼어요!`);
   } else if(!$('wait').hidden) renderBoard($('waitBoard'), V);
 }
 function onPlayer(p){
   const i=players.findIndex(x=>x.num===p.num);
   if(i>=0) players[i]={...players[i],...p}; else players.push(p);
+  if(!$('play').hidden && V) renderLiveRank($('mini'), V, players, {meP:me, limit:5});
 }
 function onRoom(r){
   const before=V.room.status;
-  V.room.status=r.status; if(r.started_at) V.room.started_at=r.started_at; if(r.ends_at) V.room.ends_at=r.ends_at;
+  V.room.status=r.status; if(r.started_at) V.room.started_at=r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
   if(before!==r.status){
     if(r.status==='playing') toast('시작! 점선 칸을 골라요', 2200);
     route();
@@ -336,7 +370,7 @@ document.addEventListener('keydown', e=>{
   const saved = load();
   if(saved && (!qCode || qCode===saved.code)){
     $('inCode').value=saved.code; $('inNum').value=saved.num;
-    const ok = await tryJoin(saved.code, saved.num, saved.token);
+    const ok = await tryJoin(saved.code, saved.num, null, saved.token);
     if(ok) return;
     forget();
   }

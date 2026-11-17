@@ -16,6 +16,7 @@
   .count .quick{display:flex;gap:8px;margin-left:auto}
   .count .quick button{padding:12px 14px;font-size:19px;background:#efe9df;color:var(--ink)}
   .info{margin:12px 0 0;color:var(--muted);font-size:18px}
+  .lbl2{font-size:20px;margin:16px 0 8px}
   .err{color:var(--red);text-align:center;font-size:20px;min-height:28px;margin:10px 0 0}
 
   /* 대기실 */
@@ -28,32 +29,38 @@
   #qr img,#qr canvas{border:10px solid #fff;border-radius:10px}
   .who{background:var(--card);border-radius:24px;padding:22px;width:min(640px,94vw)}
   .who h2{margin:0 0 6px;font-size:28px;font-weight:normal}
-  .seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin:14px 0 18px;max-height:52vh;overflow:auto}
-  .seat{padding:12px 0;font-size:22px;border-radius:12px;background:#ece8df;color:#a39b8f;text-align:center;border:none;font-family:inherit}
+  .modeTag{display:inline-block;font-size:18px;background:var(--ink);color:#fff;border-radius:999px;padding:3px 12px;vertical-align:4px}
+  .teamsum{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+  .teamsum span{font-size:18px;padding:4px 10px;border-radius:999px;color:#fff}
+  .seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin:14px 0 18px;max-height:46vh;overflow:auto}
+  .seat{padding:10px 0 8px;font-size:22px;border-radius:12px;background:#ece8df;color:#a39b8f;text-align:center;border:none;font-family:inherit;line-height:1.1}
+  .seat small{display:block;font-size:13px;opacity:.9}
   .seat.in{color:#fff;cursor:pointer}
   .row{display:flex;gap:10px}
   .row > *{flex:1}
 
   /* 게임 중 */
   #play{display:flex;gap:20px;padding:14px;justify-content:center;align-items:center;min-height:100vh}
-  #play .board{width:min(94vh,64vw)}
-  .side{width:min(420px,32vw);display:flex;flex-direction:column;gap:12px}
-  .clock{background:var(--ink);color:#fff;border-radius:18px;padding:10px 16px;text-align:center}
-  .clock .t{font-size:58px;line-height:1.1}
+  #play .board{width:min(94vh,62vw)}
+  .side{width:min(440px,34vw);display:flex;flex-direction:column;gap:10px;max-height:98vh}
+  .clock{background:var(--ink);color:#fff;border-radius:18px;padding:8px 16px;text-align:center;flex-shrink:0}
+  .clock .t{font-size:54px;line-height:1.1}
   .clock small{font-size:18px;opacity:.85}
   .clock.hurry{background:var(--red)}
-  .leader{background:var(--card);border-radius:18px;padding:12px 14px;font-size:22px;text-align:center}
-  .feed{background:var(--card);border-radius:18px;padding:10px 14px;font-size:18px;min-height:120px;max-height:22vh;overflow:hidden;display:flex;flex-direction:column;gap:4px}
+  .panel{background:var(--card);border-radius:18px;padding:10px 12px}
+  .panel h3{margin:0 0 8px;font-size:20px;font-weight:normal;color:var(--muted)}
+  #live{max-height:40vh;overflow:auto}
+  .feed{font-size:18px;min-height:96px;max-height:16vh;overflow:hidden;display:flex;flex-direction:column;gap:3px}
   .feed div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;line-height:1.35}
   .feed div:first-child{font-size:20px}
-  .side .chips{background:var(--card);border-radius:18px;padding:10px;max-height:28vh;overflow:auto}
-  .chip.off{opacity:.45}
-  .small{font-size:18px;color:var(--muted);text-align:center}
+  details.panel summary{cursor:pointer;font-size:18px;color:var(--muted)}
+  details.panel .seats{max-height:24vh;margin:10px 0 4px}
+  .small{font-size:17px;color:var(--muted);text-align:center}
 
   @media (max-width:900px), (orientation:portrait){
     #play{flex-direction:column;justify-content:flex-start}
     #play .board{width:min(96vw,60vh)}
-    .side{width:min(96vw,620px)}
+    .side{width:min(96vw,620px);max-height:none}
   }
 </style>
 </head>
@@ -65,13 +72,30 @@
   <p class="sub">선생님 화면 · 각자 기기로 동시에 대결해요</p>
 
   <div class="card">
-    <h2>몇 명이 할까요?</h2>
-    <div class="count">
-      <button class="step" id="minus">−</button>
-      <input id="nInput" type="number" min="2" max="100" value="18" inputmode="numeric">
-      <button class="step" id="plus">+</button>
-      <span class="unit">명</span>
-      <div class="quick"><button data-v="4">4명</button><button data-v="18">18명</button><button data-v="25">25명</button></div>
+    <h2>어떻게 겨룰까요?</h2>
+    <div class="seg" id="segMode"><button data-v="solo" class="on">🙋 개인전</button><button data-v="team">👥 모둠 대항</button></div>
+
+    <div id="soloBox">
+      <p class="lbl2">몇 명이 할까요?</p>
+      <div class="count">
+        <button class="step" id="minus">−</button>
+        <input id="nInput" type="number" min="2" max="100" value="18" inputmode="numeric">
+        <button class="step" id="plus">+</button>
+        <span class="unit">명</span>
+        <div class="quick"><button data-v="4">4명</button><button data-v="18">18명</button><button data-v="25">25명</button></div>
+      </div>
+    </div>
+
+    <div id="teamBox" hidden>
+      <p class="lbl2">모둠은 몇 개?</p>
+      <div class="seg" id="segTeams"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5" class="on">5</button><button data-v="6">6</button><button data-v="8">8</button></div>
+      <p class="lbl2">학생은 몇 번까지?</p>
+      <div class="count">
+        <button class="step" id="sMinus">−</button>
+        <input id="sInput" type="number" min="1" max="100" value="18" inputmode="numeric">
+        <button class="step" id="sPlus">+</button>
+        <span class="unit">번</span>
+      </div>
     </div>
     <p class="info" id="mapInfo"></p>
   </div>
@@ -83,7 +107,8 @@
 
   <div class="card">
     <h2>게임 시간</h2>
-    <div class="seg" id="segTime"><button data-v="5">5분</button><button data-v="10" class="on">10분</button><button data-v="15">15분</button><button data-v="20">20분</button></div>
+    <div class="seg" id="segTime"><button data-v="10">10분</button><button data-v="20">20분</button><button data-v="30">30분</button><button data-v="60">60분</button><button data-v="0" class="on">무제한</button></div>
+    <p class="info">무제한이면 빈칸이 다 풀리거나 선생님이 [여기서 끝내기]를 누를 때까지 계속돼요.</p>
   </div>
 
   <button class="big" id="btnCreate">방 만들기</button>
@@ -101,8 +126,9 @@
     <p class="small" id="urlNote"></p>
   </div>
   <div class="who">
-    <h2>들어온 학생 <span id="joinCount">0</span> / <span id="seatTotal">0</span></h2>
-    <p class="small" style="text-align:left;margin:0">색깔 번호를 누르면 그 번호의 기기 연결을 풀 수 있어요 (기기를 바꿀 때).</p>
+    <h2><span class="modeTag" id="modeTag"></span> 들어온 학생 <span id="joinCount">0</span> / <span id="seatTotal">0</span></h2>
+    <div class="teamsum" id="teamSum"></div>
+    <p class="small" style="text-align:left;margin:8px 0 0">색깔 번호를 누르면 그 번호의 기기 연결을 풀 수 있어요 (기기를 바꿀 때).</p>
     <div class="seats" id="seats"></div>
     <div class="row">
       <button class="soft" id="btnCancel">방 닫기</button>
@@ -116,10 +142,10 @@
   <div class="board" id="board"></div>
   <div class="side">
     <div class="clock" id="clock"><div class="t" id="clockT">0:00</div><small id="clockSub">남은 시간</small></div>
-    <div class="leader" id="leader"></div>
-    <div class="feed" id="feed"></div>
-    <div class="chips" id="chips"></div>
-    <div class="small">입장 코드 <b id="code2"></b> · 늦게 온 학생도 들어올 수 있어요 · <span id="left"></span></div>
+    <div class="panel"><h3 id="liveTitle">🏆 실시간 순위</h3><div class="live" id="live"></div></div>
+    <div class="panel feed" id="feed"></div>
+    <details class="panel"><summary>학생 연결 관리 (<span id="joinCount2">0</span>명 들어옴)</summary><div class="seats" id="seats2"></div></details>
+    <div class="small">입장 코드 <b id="code2"></b> · 늦게 와도 들어올 수 있어요 · <span id="left"></span></div>
     <button class="soft" id="btnFinish">여기서 끝내기</button>
   </div>
 </div>
@@ -129,6 +155,7 @@
   <div class="endbox">
     <div class="crown">👑</div>
     <h2 id="endTitle"></h2>
+    <div id="mvp"></div>
     <div class="ranks" id="ranks"></div>
     <div class="row" style="margin-top:14px">
       <button class="soft" id="btnPeek">지도 보기</button>
@@ -146,7 +173,7 @@
 <script>
 /* ===== 상태 ===== */
 const LS = 'sudoku_host';          // 이 기기가 만든 방 (새로고침해도 이어서)
-const cfg = {n:18, diff:'easy', min:10};
+const cfg = {mode:'solo', n:18, teams:5, students:18, diff:'easy', min:0};
 let H = null;                      // {room_id, code, host_key, skew}
 let V = null, players = [], unsub = null, tick = null, finishing = false, feedList = [];
 
@@ -156,35 +183,44 @@ const forget = () => { try{ localStorage.removeItem(LS); }catch(e){} };
 const show = id => ['setup','lobby','play'].forEach(x=>$(x).hidden = x!==id);
 
 /* ===== 1. 설정 ===== */
-function setN(v){
-  v = Math.max(2, Math.min(100, Math.round(Number(v)||2)));
-  cfg.n = v; $('nInput').value = v;
-  const k = blocksFor(v);
-  $('mapInfo').textContent = `지도 크기: ${9*k}×${9*k}칸 (스도쿠 판 ${k*k}장) · 학생은 1번~${v}번으로 들어와요`;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, Math.round(Number(v)||a)));
+function updateInfo(){
+  const owners = cfg.mode==='team' ? cfg.teams : cfg.n;
+  const k = blocksFor(owners);
+  $('mapInfo').textContent = cfg.mode==='team'
+    ? `지도 ${9*k}×${9*k}칸 · 모둠 ${cfg.teams}개 · 학생은 1번~${cfg.students}번으로 들어와 자기 모둠을 골라요`
+    : `지도 ${9*k}×${9*k}칸 (스도쿠 판 ${k*k}장) · 학생은 1번~${cfg.n}번으로 들어와요`;
 }
-$('minus').onclick = ()=>setN(cfg.n-1);
-$('plus').onclick  = ()=>setN(cfg.n+1);
+function setN(v){ cfg.n=clamp(v,2,100); $('nInput').value=cfg.n; updateInfo(); }
+function setS(v){ cfg.students=clamp(v,1,100); $('sInput').value=cfg.students; updateInfo(); }
+$('minus').onclick=()=>setN(cfg.n-1); $('plus').onclick=()=>setN(cfg.n+1);
 $('nInput').addEventListener('change', e=>setN(e.target.value));
+$('sMinus').onclick=()=>setS(cfg.students-1); $('sPlus').onclick=()=>setS(cfg.students+1);
+$('sInput').addEventListener('change', e=>setS(e.target.value));
 document.querySelector('.quick').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) setN(b.dataset.v); });
-function seg(id, key, cast){
+function seg(id, key, cast, after){
   $(id).addEventListener('click', e=>{
     const b=e.target.closest('button'); if(!b) return;
     [...$(id).children].forEach(x=>x.classList.toggle('on', x===b));
-    cfg[key]=cast(b.dataset.v);
+    cfg[key]=cast(b.dataset.v); after?.();
   });
 }
+seg('segMode','mode',String, ()=>{ $('soloBox').hidden = cfg.mode!=='solo'; $('teamBox').hidden = cfg.mode!=='team'; updateInfo(); });
+seg('segTeams','teams',Number, updateInfo);
 seg('segDiff','diff',String); seg('segTime','min',Number);
-setN(cfg.n);
+setN(cfg.n); setS(cfg.students);
 
 $('btnCreate').onclick = async ()=>{
   const btn=$('btnCreate'); btn.disabled=true; $('setupErr').textContent='';
   btn.textContent='문제를 만드는 중…';
   await new Promise(r=>setTimeout(r,30));
   try{
-    const m = buildMap(cfg.n, cfg.diff);
+    const owners = cfg.mode==='team' ? cfg.teams : cfg.n;
+    const m = buildMap(owners, cfg.diff);
     btn.textContent='방을 여는 중…';
     const res = await call('sudoku_create_room', {
-      p_n:m.n, p_k:m.K, p_diff:cfg.diff, p_duration:cfg.min*60,
+      p_mode:cfg.mode, p_n:m.n, p_students:cfg.mode==='team' ? cfg.students : m.n,
+      p_k:m.K, p_diff:cfg.diff, p_duration:cfg.min*60,
       p_puzzle:m.puzzle, p_solution:m.sol, p_owner:m.owner, p_base:m.base,
     });
     H = {room_id:res.room_id, code:res.code, host_key:res.host_key, skew:0};
@@ -219,6 +255,7 @@ function studentUrl(){ return new URL('./', location.href).href; }
 function showLobby(){
   show('lobby'); $('end').hidden = true;
   $('code').textContent = H.code;
+  $('modeTag').textContent = MODE_LABEL[V.mode] + (V.room.duration_sec ? ` · ${V.room.duration_sec/60}분` : ' · 무제한');
   const url = studentUrl();
   $('url').textContent = url;
   $('qr').innerHTML = '';
@@ -228,18 +265,30 @@ function showLobby(){
     ? '⚠️ 지금은 이 컴퓨터에서만 열려요. 인터넷에 올린 뒤에 학생 기기에서 들어올 수 있어요.' : '태블릿 카메라로 QR을 찍어도 돼요.';
   renderSeats();
 }
-function renderSeats(){
-  const joined = new Set(players.map(p=>p.num));
-  $('joinCount').textContent = joined.size;
-  $('seatTotal').textContent = V.n;
-  $('seats').innerHTML = Array.from({length:V.n},(_,p)=>{
-    const on = joined.has(p+1);
-    return `<button class="seat ${on?'in':''}" data-num="${p+1}" style="${on?`background:${V.colors[p].main}`:''}">${p+1}</button>`;
+// 번호 자리: 들어온 학생은 자기(또는 모둠) 색으로
+function seatsHtml(){
+  const byNum = new Map(players.map(p=>[p.num,p]));
+  return Array.from({length:V.students},(_,k)=>{
+    const num=k+1, pl=byNum.get(num);
+    if(!pl) return `<button class="seat">${num}</button>`;
+    const t = pl.team ?? k;
+    return `<button class="seat in" data-num="${num}" style="background:${V.colors[t].main}">${num}${V.team?`<small>${t+1}모둠</small>`:''}</button>`;
   }).join('');
-  $('btnStart').disabled = joined.size===0;
 }
-$('seats').addEventListener('click', e=>{ const b=e.target.closest('.seat.in'); if(b) release(Number(b.dataset.num)); });
-$('chips').addEventListener('click', e=>{ const b=e.target.closest('.chip:not(.off)'); if(b) release(Number(b.dataset.num)); });
+function renderSeats(){
+  const html = seatsHtml();
+  $('joinCount').textContent = players.length; $('joinCount2').textContent = players.length;
+  $('seatTotal').textContent = V.students;
+  if(!$('lobby').hidden) $('seats').innerHTML = html;
+  $('seats2').innerHTML = html;
+  $('btnStart').disabled = players.length===0;
+  // 모둠별 인원
+  if(V.team){
+    const cnt = new Array(V.n).fill(0); players.forEach(p=>{ if(p.team!=null) cnt[p.team]++; });
+    $('teamSum').innerHTML = cnt.map((c,t)=>`<span style="background:${V.colors[t].main}">${t+1}모둠 ${c}명</span>`).join('');
+  } else $('teamSum').innerHTML = '';
+}
+['seats','seats2'].forEach(id=>$(id).addEventListener('click', e=>{ const b=e.target.closest('.seat.in'); if(b) release(Number(b.dataset.num)); }));
 async function release(num){
   if(!confirm(`${num}번 기기 연결을 풀까요?\n학생이 다른 기기로 ${num}번을 다시 입력해 들어올 수 있어요. (땅과 점수는 그대로예요)`)) return;
   try{ await call('sudoku_release', {p_room:H.room_id, p_host:H.host_key, p_num:num}); toast(`${num}번 연결을 풀었어요`); }
@@ -265,25 +314,35 @@ $('btnStart').onclick = async ()=>{
 function showPlay(){
   show('play');
   $('code2').textContent = H.code;
+  $('liveTitle').textContent = V.team ? '🏆 실시간 모둠 순위' : '🏆 실시간 순위';
   buildBoard($('board'), V, null);
+  $('live').innerHTML = '';
   feedList = []; $('feed').innerHTML = '<div class="muted">학생들이 푼 소식이 여기에 나와요</div>';
-  renderPlay();
+  renderPlay(); renderSeats();
   clearInterval(tick); tick = setInterval(updateClock, 250); updateClock();
 }
 function renderPlay(){
   renderBoard($('board'), V);
-  const c = countsOf(V), joined = new Set(players.map(p=>p.num));
-  const top = Math.max(...c), leaders = [...Array(V.n).keys()].filter(p=>c[p]===top);
-  $('leader').innerHTML = leaders.length===V.n
-    ? `모두 ${top}칸에서 시작! 누가 먼저 넓힐까요?`
-    : `👑 지금 1등 ${leaders.slice(0,3).map(p=>`<span style="white-space:nowrap">${dotHtml(V.colors,p)} ${nm(p)}</span>`).join(' ')}${leaders.length>3?` 외 ${leaders.length-3}명`:''} · ${top}칸`;
-  $('chips').innerHTML = c.map((v,p)=>`<div class="chip ${joined.has(p+1)?'':'off'}" data-num="${p+1}" title="${joined.has(p+1)?'눌러서 기기 연결 풀기':'아직 안 들어옴'}">${dotHtml(V.colors,p)}<span class="nm">${nm(p)}</span><span>${v}</span></div>`).join('');
+  const joinedOwners = new Set(players.map(p=>p.team ?? (p.num-1)));
+  renderLiveRank($('live'), V, players, {
+    extra: V.team ? (p,s)=>` · ${s.members}명` : null,
+    dim: p=>!joinedOwners.has(p),
+  });
   $('left').textContent = `남은 문제 ${blanksLeft(V)}칸`;
 }
 function updateClock(){
   const st = V.room.status;
-  if(st!=='playing' || !V.room.ends_at){ $('clockT').textContent = st==='ended' ? '끝!' : '0:00'; $('clockSub').textContent=''; return; }
-  const left = (Date.parse(V.room.ends_at) - (Date.now() + (H.skew||0)))/1000;
+  const now = Date.now() + (H.skew||0);
+  if(st==='ended'){ $('clockT').textContent='끝!'; $('clockSub').textContent=''; $('clock').classList.remove('hurry'); return; }
+  if(st!=='playing'){ $('clockT').textContent='0:00'; $('clockSub').textContent=''; return; }
+  if(!V.room.ends_at){
+    // 무제한: 지난 시간을 보여 준다
+    const gone = (now - Date.parse(V.room.started_at))/1000;
+    $('clockT').textContent = fmtTime(gone);
+    $('clockSub').textContent = '무제한 · 지난 시간';
+    return;
+  }
+  const left = (Date.parse(V.room.ends_at) - now)/1000;
   $('clockT').textContent = fmtTime(left);
   $('clockSub').textContent = '남은 시간';
   $('clock').classList.toggle('hurry', left<=30);
@@ -303,11 +362,13 @@ $('btnFinish').onclick = ()=>finishGame(true);
 async function showEnd(){
   clearInterval(tick); updateClock();
   players = await fetchPlayers(H.room_id).catch(()=>players);
+  renderPlay();
   $('endTitle').textContent = kingsTitle(V);
+  $('mvp').innerHTML = V.team ? mvpHtml(V, players) : '';
   $('ranks').innerHTML = rankingHtml(V, players);
   $('end').hidden = false; $('ranks').scrollTop = 0;
 }
-$('btnPeek').onclick = ()=>{ $('end').hidden = true; setTimeout(()=>{ if(V.room.status==='ended') $('end').hidden=false; }, 8000); };
+$('btnPeek').onclick = ()=>{ $('end').hidden = true; setTimeout(()=>{ if(V && V.room.status==='ended') $('end').hidden=false; }, 8000); };
 $('btnNew').onclick = ()=>newGame();
 function newGame(){
   unsub?.(); unsub=null; clearInterval(tick);
@@ -326,12 +387,14 @@ function onClaim(cl){
 }
 function onPlayer(p){
   const i = players.findIndex(x=>x.num===p.num);
-  if(i>=0) players[i] = {...players[i], ...p}; else { players.push(p); if(!$('lobby').hidden) toast(`${p.num}번이 들어왔어요`, 1200); }
-  if(!$('lobby').hidden) renderSeats(); else if(!$('play').hidden) renderPlay();
+  if(i>=0) players[i] = {...players[i], ...p};
+  else { players.push(p); players.sort((a,b)=>a.num-b.num); if(!$('lobby').hidden) toast(`${p.num}번이 들어왔어요${V.team && p.team!=null ? ` (${p.team+1}모둠)` : ''}`, 1200); }
+  renderSeats();
+  if(!$('play').hidden) renderPlay();
 }
 function onRoom(r){
   const before = V.room.status;
-  V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; if(r.ends_at) V.room.ends_at = r.ends_at;
+  V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
   if(before!==r.status) route();
 }
 function onStatus(s){
@@ -346,7 +409,8 @@ async function resync(){
     const [st, cls, ps] = await Promise.all([fetchRoomStatus(H.room_id), fetchClaims(H.room_id), fetchPlayers(H.room_id)]);
     let changed=false; cls.forEach(cl=>{ if(applyClaim(V,cl)) changed=true; });
     players = ps;
-    if(!$('lobby').hidden) renderSeats(); else if(!$('play').hidden && changed) renderPlay();
+    renderSeats();
+    if(!$('play').hidden) renderPlay();
     onRoom(st);
   }catch(e){ $('net').textContent='● 인터넷 연결을 확인해 주세요'; $('net').classList.add('bad'); }
 }

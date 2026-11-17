@@ -51,6 +51,26 @@ h1 span{color:var(--red)}
 .chip .nm{flex:1;overflow:hidden;text-overflow:ellipsis}
 .chip.me{border-color:var(--ink);background:#fff}
 
+/* ---------- 실시간 순위표 ---------- */
+.live{display:flex;flex-direction:column;gap:5px}
+.lrow{display:flex;align-items:center;gap:8px;font-size:20px;padding:5px 10px;border-radius:12px;background:#f5efe5;border:3px solid transparent;will-change:transform}
+.lrow .rk{font-weight:normal;width:38px;text-align:center;flex-shrink:0}
+.lrow .dot{width:16px;height:16px}
+.lrow .nm{width:6.2em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.lrow .nm small{color:var(--muted)}
+.lrow .bar{flex:1;height:12px;background:#e6dfd3;border-radius:6px;overflow:hidden;min-width:30px}
+.lrow .bar i{display:block;height:100%;transition:width .45s}
+.lrow .ct{width:2.4em;text-align:right}
+.lrow.me{border-color:var(--ink);background:#fff}
+.lrow.dim{opacity:.45}
+.lrow.up{animation:flashUp .9s}
+.lrow.down{animation:flashDown .9s}
+@keyframes flashUp{30%{background:#d6f5df}}
+@keyframes flashDown{30%{background:#fbd5d5}}
+.mvp{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;align-items:center;background:#fff6d8;border-radius:14px;padding:10px;margin:0 0 10px;font-size:20px}
+.mvp b{font-weight:normal;width:100%}
+.mvp small{color:var(--muted)}
+
 /* ---------- 알림 ---------- */
 .toast{position:fixed;left:50%;top:22px;transform:translateX(-50%) translateY(calc(-100% - 40px));background:var(--ink);color:#fff;font-size:24px;padding:12px 24px;border-radius:999px;transition:transform .3s;z-index:40;max-width:92vw;text-align:center}
 .toast.show{transform:translateX(-50%) translateY(0)}
