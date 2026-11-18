@@ -85,10 +85,11 @@
       <li>번호표가 붙은 줄무늬 3×3이 내 <b style="color:var(--red);font-weight:normal">본진</b>이에요.</li>
       <li>점선 칸을 골라 숫자를 눌러요. 차례 없이 모두 동시에!</li>
       <li>⚔️ 내 땅 옆의 친구 땅·회색 땅을 맞히면 내 땅이 돼요.</li>
-      <li>🛡️ 내 땅 빈칸을 맞히면 다시는 못 뺏겨요.</li>
+      <li>🛡️ 내 땅 빈칸을 맞히면 숫자가 채워져서 지킬 수 있어요.</li>
       <li>같은 칸은 먼저 맞힌 사람 것! 틀리면 5초 쉬어요.</li>
       <li>🪂 둘 곳이 없으면 낙하산! 아무 빈칸이나 풀 수 있어요.</li>
-      <li>🔄 판을 다 채우면 새 문제가 나와요. 땅 색깔은 그대로!</li>
+      <li>✨ 3×3 한 칸을 다 채우면 그 자리가 다시 빈칸이 돼요. 땅 색깔은 그대로!</li>
+      <li>🔄 9×9 판의 3×3을 모두 한 번씩 채우면 숫자가 바뀐 새 문제!</li>
       <li>🔥 선생님이 본진 공격을 열면 본진도 빼앗을 수 있어요.</li>
     </ul>
   </div>
@@ -305,7 +306,7 @@ function render(){
     const o=V.owner[sel];
     $('hint').textContent = o===me ? '🛡️ 수비! 알맞은 숫자를 눌러요' : (o<0 ? '⚔️ 빈 땅 차지! 숫자를 눌러요' : `⚔️ ${nm(o)} 땅 공격! 숫자를 눌러요`);
   }
-  $('left').textContent = `빈칸 ${blanksLeft(V)}개 · 판을 다 채우면 새 문제!`;
+  $('left').textContent = `빈칸 ${blanksLeft(V)}개 · 3×3을 채우면 다시 빈칸!`;
 }
 function pick(i){
   if(!playing() || Date.now()<coolUntil || !moves.cells.has(i)) return;
@@ -323,8 +324,9 @@ async function answer(d){
       sel=-1;
       applyClaim(V, {cell, player:me, value:d, prev_owner:res.prev, solved:true});
       render(); popCell($('board'), cell);
-      if(res.refreshed){ toast('🔄 판을 다 채웠어요! 새 문제가 나와요', 2400); resync(); }
-      else toast(res.kind==='para' ? '🪂 낙하산 착륙 성공! 여기서 다시 넓혀요' : res.kind==='def' ? '🛡️ 수비 성공! 이제 안전해요' : res.kind==='neutral' ? '🚩 빈 땅을 차지했어요!' : `⚔️ ${nm(res.prev)} 땅을 빼앗았어요!`);
+      if(res.refreshed){ toast('🔄 9×9 판 완성! 숫자가 바뀐 새 문제가 나와요', 2400); resync(); }
+      else if(res.reblank){ toast('✨ 3×3을 다 채웠어요! 다시 빈칸이 돼요', 2000); resync(); }
+      else toast(res.kind==='para' ? '🪂 낙하산 착륙 성공! 여기서 다시 넓혀요' : res.kind==='def' ? '🛡️ 수비 성공!' : res.kind==='neutral' ? '🚩 빈 땅을 차지했어요!' : `⚔️ ${nm(res.prev)} 땅을 빼앗았어요!`);
       break;
     case 'wrong':
       sel=-1; wrongShake(cell); startCool(5); break;
@@ -399,7 +401,7 @@ function onPlayer(p){
   if(!$('play').hidden && V) renderLiveRank($('mini'), V, players, {meP:me, limit:5});
 }
 function onRoom(r){
-  const before=V.room.status, beforeRef=V.room.refreshes||0, beforeOpen=!!V.room.base_open;
+  const before=V.room.status, beforeRef=V.room.refreshes||0, beforeOpen=!!V.room.base_open, beforeRb=V.room.reblanks||0;
   V.room.status=r.status; if(r.started_at) V.room.started_at=r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
   if(before!==r.status){
     if(r.status==='playing') toast('시작! 점선 칸을 골라요', 2200);
@@ -410,6 +412,10 @@ function onRoom(r){
   if(opened) toast('🔥 본진 공격 시작! 본진도 빼앗을 수 있어요. 내 본진도 지켜요!', 3200);
   else if(refreshed) toast('🔄 새 문제가 나왔어요!', 1800);
   if(opened || refreshed) resync().then(()=>{ if(refreshed && !opened && !$('play').hidden) flashBlock($('board'), V, r.last_block); });
+  else if(r.reblanks!==undefined && r.reblanks>beforeRb){
+    V.room.reblanks=r.reblanks;
+    if(!$('play').hidden) flashBox($('board'), V, r.last_box);
+  }
 }
 function onStatus(s){
   const ok = s==='SUBSCRIBED';
@@ -425,7 +431,7 @@ async function resync(){
     const [st, cls] = await Promise.all([fetchRoomStatus(P.room_id), fetchClaims(P.room_id)]);
     if(!st){ leave('방이 닫혔어요'); return; }
     const statusChanged = st.status!==V.room.status;
-    rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block}, cls);
+    rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block, reblanks:st.reblanks}, cls);
     if(!$('play').hidden) render(); else if(!$('wait').hidden) renderBoard($('waitBoard'), V);
     if(statusChanged) onRoom(st); else V.room.ends_at = st.ends_at ?? V.room.ends_at;
   }catch(e){ $('net').textContent='● 인터넷 연결을 확인해 주세요'; $('net').classList.add('bad'); }

@@ -343,7 +343,7 @@ function renderPlay(){
     extra: V.team ? (p,s)=>` · ${s.members}명` : null,
     dim: p=>!joinedOwners.has(p),
   });
-  $('left').textContent = `빈칸 ${blanksLeft(V)}개 · 새 문제 ${V.room.refreshes||0}번`;
+  $('left').textContent = `빈칸 ${blanksLeft(V)}개 · 다시 비우기 ${V.room.reblanks||0}번 · 새 문제 ${V.room.refreshes||0}번`;
   updateOpenBtn();
 }
 function updateClock(){
@@ -435,15 +435,19 @@ function onPlayer(p){
   if(!$('play').hidden) renderPlay();
 }
 function onRoom(r){
-  const before = V.room.status, beforeRef = V.room.refreshes||0, beforeOpen = !!V.room.base_open;
+  const before = V.room.status, beforeRef = V.room.refreshes||0, beforeOpen = !!V.room.base_open, beforeRb = V.room.reblanks||0;
   V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
   if(before!==r.status){ route(); return; }
   const opened = r.base_open!==undefined && !!r.base_open && !beforeOpen;
   const refreshed = r.refreshes!==undefined && r.refreshes>beforeRef;
   if(opened || refreshed){
     if(opened){ bigBanner('🔥 본진 공격 시작!'); addFeed('🔥 본진 공격 시작! 본진도 빼앗을 수 있어요'); }
-    else { addFeed('🔄 판을 다 채웠어요! 새 문제가 나왔어요'); }
+    else { addFeed('🔄 9×9 판 완성! 숫자가 바뀐 새 문제가 나왔어요'); }
     resync().then(()=>{ if(!opened && !$('play').hidden) flashBlock($('board'), V, r.last_block); });
+  } else if(r.reblanks!==undefined && r.reblanks>beforeRb){
+    V.room.reblanks = r.reblanks;
+    addFeed('✨ 3×3 하나를 다 채워서 다시 빈칸이 됐어요');
+    if(!$('play').hidden){ flashBox($('board'), V, r.last_box); renderPlay(); }
   }
 }
 function onStatus(s){
@@ -457,7 +461,7 @@ async function resync(){
   try{
     const [st, cls, ps] = await Promise.all([fetchRoomStatus(H.room_id), fetchClaims(H.room_id), fetchPlayers(H.room_id)]);
     const statusChanged = st.status!==V.room.status;
-    rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block}, cls);
+    rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block, reblanks:st.reblanks}, cls);
     players = ps;
     renderSeats();
     if(!$('play').hidden) renderPlay();

@@ -250,6 +250,16 @@ function flashBlock(el, v, block){
   }
 }
 
+// 다시 빈칸이 된 3×3(box 번호 = 3×3 줄*가로개수 + 3×3 칸)을 반짝이게
+function flashBox(el, v, box){
+  if(box==null) return;
+  const n=v.K*3, gy=Math.floor(box/n), gx=box%n;
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+    const d=el.children[(gy*3+r)*v.W + gx*3+c]; if(!d) continue;
+    d.classList.remove('fresh'); void d.offsetWidth; d.classList.add('fresh');
+  }
+}
+
 /* ===== 순위 ===== */
 // 땅 주인(학생 또는 모둠)별 공격·수비 합계
 function statsByOwner(v, players){
@@ -337,7 +347,7 @@ async function fetchRoom(roomId){
   if(error) throw error; return data;
 }
 async function fetchRoomStatus(roomId){
-  const { data, error } = await sb.from('sudoku_rooms').select('status,started_at,ends_at,puzzle,base_open,refreshes,last_block').eq('id', roomId).maybeSingle();
+  const { data, error } = await sb.from('sudoku_rooms').select('status,started_at,ends_at,puzzle,base_open,refreshes,last_block,reblanks,last_box').eq('id', roomId).maybeSingle();
   if(error) throw error; return data;
 }
 async function fetchClaims(roomId){
