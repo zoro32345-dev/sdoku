@@ -8,6 +8,18 @@
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
+  /* 첫 화면: 선생님/학생 고르기 */
+  #home{max-width:720px;margin:0 auto;padding:36px 16px 40px;text-align:center}
+  .roles{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:10px 0 18px}
+  .role{display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 14px;border-radius:24px;color:#fff;font-size:30px;box-shadow:0 6px 0 rgba(0,0,0,.18);text-decoration:none;font-family:inherit}
+  .role:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
+  .role .ri{font-size:64px;line-height:1}
+  .role small{font-size:17px;opacity:.9}
+  .role.t{background:#3a342c}
+  .role.s{background:var(--red)}
+  @media (max-width:520px){ .roles{grid-template-columns:1fr} }
+  .back{background:none;color:var(--muted);font-size:18px;padding:6px 0;margin-bottom:6px}
+
   /* 입장 */
   #join{max-width:480px;margin:0 auto;padding:28px 16px 40px}
   .field{display:block;margin-bottom:18px}
@@ -63,8 +75,20 @@
 </head>
 <body>
 
+<!-- ===== 0. 첫 화면 ===== -->
+<div id="home" hidden>
+  <h1>👑 스도쿠<span>왕</span> 쟁탈전</h1>
+  <p class="sub">스도쿠 빈칸을 맞혀 친구 땅을 빼앗는 실시간 대결</p>
+  <div class="roles">
+    <a class="role t" href="teacher.html"><span class="ri">👩‍🏫</span>선생님<small>방 만들고 TV에 띄우기</small></a>
+    <button class="role s" id="btnStudent"><span class="ri">🙋</span>학생<small>입장 코드와 번호로 들어가기</small></button>
+  </div>
+  <p class="muted" style="font-size:18px">선생님이 먼저 방을 만들면, 학생은 화면의 QR이나 입장 코드로 들어와요.</p>
+</div>
+
 <!-- ===== 1. 입장 ===== -->
 <div id="join" hidden>
+  <button class="back" id="btnHome">← 처음 화면</button>
   <h1>👑 스도쿠<span>왕</span> 쟁탈전</h1>
   <p class="sub">선생님 화면의 입장 코드와 내 번호를 넣어요</p>
   <div class="card">
@@ -157,7 +181,9 @@ let coolUntil = 0, busy = false;
 const save = () => { try{ localStorage.setItem(LS, JSON.stringify(P)); }catch(e){} };
 const load = () => { try{ return JSON.parse(localStorage.getItem(LS)); }catch(e){ return null; } };
 const forget = () => { try{ localStorage.removeItem(LS); }catch(e){} };
-const show = id => ['join','wait','play'].forEach(x=>$(x).hidden = x!==id);
+const show = id => ['home','join','wait','play'].forEach(x=>$(x).hidden = x!==id);
+$('btnStudent').onclick = ()=>{ show('join'); $('inCode').focus(); };
+$('btnHome').onclick = ()=>show('home');
 
 /* ===== 1. 입장 ===== */
 // 주소에 ?code=1234 가 있으면 코드 칸을 채워 둔다
@@ -537,7 +563,7 @@ document.addEventListener('keydown', e=>{
     if(ok) return;
     forget();
   }
-  show('join');
+  show(qCode ? 'join' : 'home');   // QR로 온 학생은 바로 입장 화면, 아니면 선생님/학생 고르기
 })();
 </script>
 </body>
