@@ -159,6 +159,10 @@
     <details class="panel"><summary>학생 연결 관리 (<span id="joinCount2">0</span>명 들어옴)</summary><div class="seats" id="seats2"></div></details>
     <div class="small">입장 코드 <b id="code2"></b> · 늦게 와도 들어올 수 있어요 · <span id="left"></span></div>
     <div class="row">
+      <button class="soft fire" id="btnFever" title="1분 동안 틀려도 쉬지 않아요">⚡ 피버 타임</button>
+      <button class="soft fire" id="btnChance" title="땅이 가장 적은 친구들이 아무 빈칸이나 한 번 풀 수 있어요">🎟️ 역전 찬스</button>
+    </div>
+    <div class="row">
       <button class="soft fire" id="btnOpen">🔥 본진 공격 시작!</button>
       <button class="soft" id="btnFinish">여기서 끝내기</button>
     </div>
@@ -179,6 +183,7 @@
   </div>
 </div>
 
+<div class="fever" id="fever" hidden>⚡ 피버 타임! 틀려도 안 쉬어요<b id="feverT"></b></div>
 <div class="toast" id="toast"></div>
 <div class="net" id="net"></div>
 
@@ -334,7 +339,8 @@ function showPlay(){
   $('live').innerHTML = '';
   feedList = []; $('feed').innerHTML = '<div class="muted">학생들이 푼 소식이 여기에 나와요</div>';
   renderPlay(); renderSeats();
-  clearInterval(tick); tick = setInterval(updateClock, 250); updateClock();
+  clearInterval(tick); tick = setInterval(()=>{ updateClock(); playExtras(); }, 250); updateClock();
+  goldGoneAt = Date.now();
 }
 function renderPlay(){
   renderBoard($('board'), V);
@@ -364,6 +370,42 @@ function updateClock(){
   $('clock').classList.toggle('hurry', left<=30);
   if(left<=0 && !finishing) finishGame(false);
 }
+// 피버 남은 시간, 황금 칸 만들기 (게임 중일 때 250ms마다 불림)
+let goldGoneAt = Date.now(), goldBusy = false, chanceBusy = false;
+const GOLD_EVERY = 60000;
+function playExtras(){
+  if(!V || V.room.status!=='playing'){
+    $('fever').hidden = true; $('btnFever').disabled = $('btnChance').disabled = true; $('btnFever').textContent = '⚡ 피버 타임'; return;
+  }
+  const fl = feverLeft(V, H.skew||0);
+  $('fever').hidden = fl<=0; if(fl>0) $('feverT').textContent = fmtTime(fl);
+  $('btnFever').disabled = fl>0; if(!chanceBusy) $('btnChance').disabled = false;
+  $('btnFever').textContent = fl>0 ? `⚡ 피버 중 ${fmtTime(fl)}` : '⚡ 피버 타임';
+  if(goldAlive(V)) goldGoneAt = Date.now();
+  else if(!goldBusy && Date.now()-goldGoneAt >= GOLD_EVERY){
+    goldBusy = true;
+    call('sudoku_spawn_gold', {p_room:H.room_id, p_host:H.host_key})
+      .catch(()=>{}).finally(()=>{ goldBusy=false; goldGoneAt = Date.now(); });
+  }
+}
+$('btnFever').onclick = async ()=>{
+  $('btnFever').disabled = true;
+  try{ const r = await call('sudoku_fever', {p_room:H.room_id, p_host:H.host_key}); if(r.r==='ok') await resync(); }
+  catch(e){ toast('피버 타임을 켜지 못했어요. 다시 눌러 주세요'); $('btnFever').disabled=false; }
+};
+$('btnChance').onclick = async ()=>{
+  if(!confirm(`땅이 가장 적은 ${V.team?'모둠':'친구 3명'}에게 역전 찬스를 줄까요?
+아무 빈칸이나 한 번 풀 수 있어요.`)) return;
+  $('btnChance').disabled = true; chanceBusy = true;
+  try{
+    const r = await call('sudoku_chance', {p_room:H.room_id, p_host:H.host_key});
+    if(r.r==='ok'){
+      const who = V.team ? r.owners.map(nm).join(', ') : r.nums.map(n=>n+'번').join(', ');
+      bigBanner('🎟️ 역전 찬스!'); addFeed(`🎟️ 역전 찬스! ${who}: 아무 빈칸이나 한 번`);
+    } else toast('지금은 역전 찬스를 줄 수 없어요');
+  }catch(e){ toast('역전 찬스를 주지 못했어요. 다시 눌러 주세요'); }
+  setTimeout(()=>{ chanceBusy = false; }, 3000);
+};
 async function finishGame(ask){
   if(ask && !confirm('지금 땅 개수로 스도쿠왕을 정할까요?')) return;
   finishing = true;
@@ -398,12 +440,13 @@ function addFeed(msg){
 
 /* ===== 4. 결과 ===== */
 async function showEnd(){
-  clearInterval(tick); updateClock();
+  clearInterval(tick); updateClock(); playExtras();
   players = await fetchPlayers(H.room_id).catch(()=>players);
   renderPlay();
   $('endTitle').textContent = kingsTitle(V);
-  $('mvp').innerHTML = V.team ? mvpHtml(V, players) : '';
+  $('mvp').innerHTML = (V.team ? mvpHtml(V, players) : '') + titlesHtml(players);
   $('ranks').innerHTML = rankingHtml(V, players);
+  $('fever').hidden = true;
   $('end').hidden = false; $('ranks').scrollTop = 0;
 }
 $('btnPeek').onclick = ()=>{ $('end').hidden = true; setTimeout(()=>{ if(V && V.room.status==='ended') $('end').hidden=false; }, 8000); };
@@ -437,7 +480,16 @@ function onPlayer(p){
 function onRoom(r){
   const before = V.room.status, beforeRef = V.room.refreshes||0, beforeOpen = !!V.room.base_open, beforeRb = V.room.reblanks||0;
   V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
-  if(before!==r.status){ route(); return; }
+  if(before!==r.status){ copyRoomExtra(V, r); route(); return; }
+  const oldGold = V.room.gold_cell, oldGolds = V.room.golds||0, oldFever = V.room.fever_until;
+  copyRoomExtra(V, r);
+  if(r.golds!==undefined && r.golds>oldGolds){ bigBanner('✨ 황금 칸 등장!'); addFeed('✨ 황금 칸 등장! 누구나 풀 수 있어요'); }
+  if(oldGold!=null && r.gold_cell===null && r.gold_by_num!=null){
+    bigBanner(`🌟 ${r.gold_by_num}번 황금 칸!`); addFeed(`🌟 ${r.gold_by_num}번${V.team?` (${nm(r.gold_by)})`:''}이 황금 칸을 차지! 둘레까지 한꺼번에`);
+    goldGoneAt = Date.now();
+  }
+  if(r.fever_until && r.fever_until!==oldFever && feverLeft(V, H.skew||0)>0){ bigBanner('⚡ 피버 타임!'); addFeed('⚡ 피버 타임! 1분 동안 틀려도 안 쉬어요'); }
+  if(!$('play').hidden) renderPlay();
   const opened = r.base_open!==undefined && !!r.base_open && !beforeOpen;
   const refreshed = r.refreshes!==undefined && r.refreshes>beforeRef;
   if(opened || refreshed){
@@ -462,6 +514,7 @@ async function resync(){
     const [st, cls, ps] = await Promise.all([fetchRoomStatus(H.room_id), fetchClaims(H.room_id), fetchPlayers(H.room_id)]);
     const statusChanged = st.status!==V.room.status;
     rebuildView(V, {puzzle:st.puzzle, base_open:st.base_open, refreshes:st.refreshes, last_block:st.last_block, reblanks:st.reblanks}, cls);
+    copyRoomExtra(V, st);
     players = ps;
     renderSeats();
     if(!$('play').hidden) renderPlay();

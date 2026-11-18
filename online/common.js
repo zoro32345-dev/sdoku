@@ -185,13 +185,21 @@ function rebuildView(v, room, claims){
 const isBlank = (v,i) => v.value[i]===0;
 const blanksLeft = v => v.value.filter(x=>x===0).length;
 // 이 주인(p)이 지금 고를 수 있는 칸. 하나도 없으면 낙하산: 모든 빈칸
-function movesFor(v, p){
+// tickets: 역전 찬스 표 개수(있으면 아무 빈칸이나). 황금 칸은 누구나 고를 수 있다.
+function movesFor(v, p, tickets=0){
   const cells = new Set();
+  const g = v.room.gold_cell;
+  if(tickets>0){ for(let i=0;i<v.C;i++) if(isBlank(v,i)) cells.add(i); return {cells, para:false, ticket:true}; }
   for(let i=0;i<v.C;i++) if(legalFor(v,p,i)) cells.add(i);
-  if(cells.size) return {cells, para:false};
+  if(cells.size){ if(g!=null && isBlank(v,g)) cells.add(g); return {cells, para:false}; }
   for(let i=0;i<v.C;i++) if(isBlank(v,i)) cells.add(i);
   return {cells, para:true};
 }
+// 방 정보 중 실시간으로 바뀌는 것들 (황금 칸, 피버, 역전 찬스 등)
+const ROOM_EXTRA = ['gold_cell','golds','gold_by','gold_by_num','gold_last','fever_until','chances'];
+function copyRoomExtra(v, r){ ROOM_EXTRA.concat(['reblanks','last_box']).forEach(k=>{ if(r[k]!==undefined) v.room[k]=r[k]; }); }
+const goldAlive = v => v.room.gold_cell!=null && isBlank(v, v.room.gold_cell);
+const feverLeft = (v, skew=0) => v.room.fever_until ? Math.max(0, (Date.parse(v.room.fever_until) - (Date.now()+skew))/1000) : 0;
 function countsOf(v){ const c=new Array(v.n).fill(0); v.owner.forEach(o=>{ if(o>=0) c[o]++; }); return c; }
 function neighborsOf(v,i){ const W=v.W, r=Math.floor(i/W), c=i%W, o=[]; if(r>0)o.push(i-W); if(r<W-1)o.push(i+W); if(c>0)o.push(i-1); if(c<W-1)o.push(i+1); return o; }
 function legalFor(v,p,i){
@@ -234,6 +242,7 @@ function renderBoard(el, v, opt={}){
     d.classList.toggle('solved', v.claimed.has(i));
     d.classList.toggle('legal', me>=0 && !!opt.playing && i!==opt.sel && (legal ? legal.has(i) : legalFor(v,me,i)));
     d.classList.toggle('sel', me>=0 && i===opt.sel);
+    d.classList.toggle('gold', i===v.room.gold_cell && isBlank(v,i) && v.room.status==='playing');
   }
 }
 function popCell(el, i){
@@ -284,6 +293,33 @@ function mvpHtml(v, players){
     .sort((a,b)=>b.score-a.score || b.atk-a.atk || a.num-b.num).slice(0,3);
   if(!list.length) return '';
   return `<div class="mvp"><b>🌟 우리 반 MVP</b>${list.map((p,k)=>`<span>${['🥇','🥈','🥉'][k]} ${p.num}번 <small>(${nm(p.team)}) ${p.score}칸</small></span>`).join('')}</div>`;
+}
+
+// 결과 화면 칭호: 여러 아이가 받을 수 있게
+const TITLES = [
+  ['⚔️','공격왕','atk', n=>`${n}칸 빼앗음`],
+  ['🛡️','수비왕','def', n=>`${n}칸 지킴`],
+  ['🌟','황금손','golds', n=>`황금 칸 ${n}번`],
+  ['✨','마무리왕','boxes', n=>`3×3 완성 ${n}번`],
+  ['🪂','낙하산왕','para', n=>`${n}번 착륙`],
+];
+function titlesHtml(players, meNum=-1){
+  const who = list => list.length>3 ? list.slice(0,3).map(p=>p.num+'번').join(', ')+` 외 ${list.length-3}명` : list.map(p=>p.num+'번').join(', ');
+  const cards = [];
+  TITLES.forEach(([ic,name,key,desc])=>{
+    const top = Math.max(0, ...players.map(p=>p[key]||0)); if(!top) return;
+    const list = players.filter(p=>(p[key]||0)===top);
+    cards.push({ic,name,list,desc:desc(top)});
+  });
+  // 정확왕: 5칸 이상 푼 학생 중 틀린 비율이 가장 낮은 학생
+  const ok = players.filter(p=>(p.atk||0)+(p.def||0)>=5).map(p=>({...p, solved:(p.atk||0)+(p.def||0), rate:(p.miss||0)/((p.atk||0)+(p.def||0)+(p.miss||0))}));
+  if(ok.length){
+    const best = Math.min(...ok.map(p=>p.rate));
+    const list = ok.filter(p=>p.rate===best).sort((a,b)=>b.solved-a.solved);
+    cards.splice(2,0,{ic:'🎯',name:'정확왕',list,desc:`틀림 ${list[0].miss||0}번`});
+  }
+  if(!cards.length) return '';
+  return `<div class="titles"><b>🏅 오늘의 칭호</b>${cards.map(c=>`<div class="tcard ${c.list.some(p=>p.num===meNum)?'me':''}"><span class="ti">${c.ic}</span><span class="tn">${c.name}</span><span class="tw">${who(c.list)}</span><small>${c.desc}</small></div>`).join('')}</div>`;
 }
 
 /* 실시간 순위표: 순서가 바뀌면 줄이 미끄러지듯 움직인다
@@ -347,7 +383,7 @@ async function fetchRoom(roomId){
   if(error) throw error; return data;
 }
 async function fetchRoomStatus(roomId){
-  const { data, error } = await sb.from('sudoku_rooms').select('status,started_at,ends_at,puzzle,base_open,refreshes,last_block,reblanks,last_box').eq('id', roomId).maybeSingle();
+  const { data, error } = await sb.from('sudoku_rooms').select('status,started_at,ends_at,puzzle,base_open,refreshes,last_block,reblanks,last_box,'+ROOM_EXTRA.join(',')).eq('id', roomId).maybeSingle();
   if(error) throw error; return data;
 }
 async function fetchClaims(roomId){
@@ -355,7 +391,7 @@ async function fetchClaims(roomId){
   if(error) throw error; return data;
 }
 async function fetchPlayers(roomId){
-  const { data, error } = await sb.from('sudoku_players').select('num,team,atk,def,miss,joined_at').eq('room_id', roomId).order('num');
+  const { data, error } = await sb.from('sudoku_players').select('num,team,atk,def,miss,para,boxes,golds,tickets,joined_at').eq('room_id', roomId).order('num');
   if(error) throw error; return data;
 }
 
