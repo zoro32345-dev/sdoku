@@ -187,6 +187,11 @@ const blanksLeft = v => v.value.filter(x=>x===0).length;
 // 이 주인(p)이 지금 고를 수 있는 칸. 하나도 없으면 낙하산: 모든 빈칸
 // tickets: 역전 찬스 표 개수(있으면 아무 빈칸이나). 황금 칸은 누구나 고를 수 있다.
 function movesFor(v, p, tickets=0){
+  const m = movesRaw(v, p, tickets);
+  [...m.cells].forEach(i=>{ if(isShielded(v,i,p)) m.cells.delete(i); });   // 방패 중인 친구 본진은 빼기
+  return m;
+}
+function movesRaw(v, p, tickets){
   const cells = new Set();
   const g = v.room.gold_cell;
   if(tickets>0){ for(let i=0;i<v.C;i++) if(isBlank(v,i)) cells.add(i); return {cells, para:false, ticket:true}; }
@@ -196,7 +201,15 @@ function movesFor(v, p, tickets=0){
   return {cells, para:true};
 }
 // 방 정보 중 실시간으로 바뀌는 것들 (황금 칸, 피버, 역전 찬스 등)
-const ROOM_EXTRA = ['gold_cell','golds','gold_by','gold_by_num','gold_last','fever_until','chances'];
+const ROOM_EXTRA = ['gold_cell','golds','gold_by','gold_by_num','gold_last','fever_until','chances',
+  'shield_until','shield_used','fallen','falls','last_fall_victim','last_fall_by','last_fall_num','retakes','last_retake'];
+// 본진 방패: q(주인)의 방패가 지금 켜져 있는지
+const shieldOn = (v, q) => { const t = v.room.shield_until && v.room.shield_until[q]; return !!t && Date.parse(t) > Date.now() + (v.skew||0); };
+const shieldLeft = (v, q) => { const t = v.room.shield_until && v.room.shield_until[q]; return t ? Math.max(0, (Date.parse(t) - Date.now() - (v.skew||0))/1000) : 0; };
+const shieldKey = v => [...Array(v.n).keys()].filter(q=>shieldOn(v,q)).join(',');
+// 내 본진 칸 중 아직 내 땅인 칸 수
+function baseHp(v, q){ let mine=0, total=0; for(let i=0;i<v.C;i++) if(v.base[i] && v.room.init_owner[i]===q){ total++; if(v.owner[i]===q) mine++; } return {mine, total}; }
+const isShielded = (v, i, p) => v.base[i] && v.room.init_owner[i]!==p && shieldOn(v, v.room.init_owner[i]);
 function copyRoomExtra(v, r){ ROOM_EXTRA.concat(['reblanks','last_box']).forEach(k=>{ if(r[k]!==undefined) v.room[k]=r[k]; }); }
 const goldAlive = v => v.room.gold_cell!=null && isBlank(v, v.room.gold_cell);
 const feverLeft = (v, skew=0) => v.room.fever_until ? Math.max(0, (Date.parse(v.room.fever_until) - (Date.now()+skew))/1000) : 0;
@@ -243,6 +256,7 @@ function renderBoard(el, v, opt={}){
     d.classList.toggle('legal', me>=0 && !!opt.playing && i!==opt.sel && (legal ? legal.has(i) : legalFor(v,me,i)));
     d.classList.toggle('sel', me>=0 && i===opt.sel);
     d.classList.toggle('gold', i===v.room.gold_cell && isBlank(v,i) && v.room.status==='playing');
+    d.classList.toggle('shield', v.base[i] && v.room.status==='playing' && shieldOn(v, v.room.init_owner[i]));
   }
 }
 function popCell(el, i){
@@ -297,6 +311,7 @@ function mvpHtml(v, players){
 
 // 결과 화면 칭호: 여러 아이가 받을 수 있게
 const TITLES = [
+  ['👑','정복왕','conquers', n=>`본진 함락 ${n}번`],
   ['⚔️','공격왕','atk', n=>`${n}칸 빼앗음`],
   ['🛡️','수비왕','def', n=>`${n}칸 지킴`],
   ['🌟','황금손','golds', n=>`황금 칸 ${n}번`],
@@ -391,7 +406,7 @@ async function fetchClaims(roomId){
   if(error) throw error; return data;
 }
 async function fetchPlayers(roomId){
-  const { data, error } = await sb.from('sudoku_players').select('num,team,atk,def,miss,para,boxes,golds,tickets,joined_at').eq('room_id', roomId).order('num');
+  const { data, error } = await sb.from('sudoku_players').select('num,team,atk,def,miss,para,boxes,golds,tickets,conquers,joined_at').eq('room_id', roomId).order('num');
   if(error) throw error; return data;
 }
 
@@ -417,3 +432,39 @@ async function measureSkew(){
   }catch(e){ return 0; }
 }
 const fmtTime = s => { s=Math.max(0,Math.ceil(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+/* ===== 게임 방법 슬라이드 =====
+   선생님 TV(크게)와 학생 기다리기 화면(작게)에서 같이 쓴다.
+   demo: 작은 그림판. R=내 본진 r=내 땅 B=친구 본진 b=친구 땅 .=빈 땅 *=고를 수 있는 칸 G=황금 칸 S=방패 본진 */
+const RULE_SLIDES = [
+  {ic:'👑', t:'땅을 가장 많이 차지하면 스도쿠왕!', l:['스도쿠 빈칸을 맞혀서 내 땅을 넓혀요.','차례 없이 모두 동시에! 내 기기로 해요.']},
+  {ic:'🏠', t:'번호표 줄무늬 3×3이 내 본진', l:['처음엔 본진과 그 둘레가 내 땅이에요.','내 색깔을 기억해요!'], demo:['RRRr.','RRRr.','RRRr.','rrrr.','.....']},
+  {ic:'⚔️', t:'점선 칸을 골라 숫자를 맞혀요', l:['내 땅에 붙은 점선 칸만 고를 수 있어요.','친구 땅도 맞히면 내 땅! 빈 땅도 내 땅!'], demo:['rrr*b','rrr*b','rr**b','*..bb','..bbb']},
+  {ic:'🛡️', t:'먼저 맞힌 사람이 임자!', l:['같은 칸은 먼저 맞힌 친구 것이에요.','틀리면 5초 쉬어요. 천천히 정확하게!','내 땅 빈칸을 맞히면 그 칸을 지켜요.']},
+  {ic:'✨', t:'판은 끝없이 계속돼요', l:['3×3을 다 채우면 그 자리가 다시 빈칸!','9×9 판의 3×3을 모두 채우면 새 문제!','🪂 둘 곳이 없으면 낙하산: 아무 빈칸이나!']},
+  {ic:'🌟', t:'깜짝 이벤트', l:['🌟 황금 칸: 누구나 풀 수 있고 둘레 8칸까지 내 땅!','⚡ 피버 타임: 1분 동안 틀려도 안 쉬어요','🎟️ 역전 찬스: 땅이 적은 친구는 아무 빈칸 한 번!'], demo:['bb.rr','b...r','..G..','.....','rr.bb']},
+  {ic:'🔥', t:'본진 공격! (선생님이 열면)', l:['본진에도 빈칸이 생겨 빼앗을 수 있어요.','🛡️ 방패 한 번: 30초 동안 내 본진을 못 빼앗아요.','👑 본진 빈칸을 모두 빼앗으면 함락! 9칸 모두 내 땅','🏰 빼앗겨도 탈락 없음! 역전 찬스 2장으로 되찾아요'], demo:['SSS..','SSS..','SSS*b','..*BB','..bBB']},
+  {ic:'🏅', t:'끝나면 칭호를 받아요', l:['정복왕·공격왕·수비왕·정확왕·황금손·마무리왕·낙하산왕','땅이 적어도 칭호는 받을 수 있어요. 준비됐나요?']},
+];
+function demoHtml(rows){
+  const col = {R:'#e5484d',r:'#f7b9bb',B:'#3b82f6',b:'#bcd3fb','.':'#ece8df','*':'#ece8df',G:'#ffd54a',S:'#e5484d'};
+  return `<div class="demo" style="grid-template-columns:repeat(${rows[0].length},1fr)">${rows.join('').split('').map(ch=>
+    `<i class="${ch==='*'?'dl':''}${'RBS'.includes(ch)?' bs':''}${ch==='S'?' sh':''}${ch==='G'?' gd':''}" style="background:${col[ch]}"></i>`).join('')}</div>`;
+}
+// el 안에 슬라이드를 만든다. 반환: {go(k)}
+function slidesWidget(el, big=false){
+  let k = 0;
+  el.classList.add('slides'); el.classList.toggle('big', big);
+  el.innerHTML = `<div class="sl-body"></div><div class="sl-nav"><button class="soft sl-prev">◀ 이전</button><span class="sl-dots"></span><button class="soft sl-next">다음 ▶</button></div>`;
+  const body = el.querySelector('.sl-body'), dots = el.querySelector('.sl-dots');
+  const go = n => {
+    k = (n + RULE_SLIDES.length) % RULE_SLIDES.length; const s = RULE_SLIDES[k];
+    body.innerHTML = `<div class="sl-ic">${s.ic}</div><div class="sl-main"><h3>${s.t}</h3><ul>${s.l.map(x=>`<li>${x}</li>`).join('')}</ul></div>${s.demo?demoHtml(s.demo):''}`;
+    dots.innerHTML = RULE_SLIDES.map((_,j)=>`<i class="${j===k?'on':''}"></i>`).join('');
+    el.querySelector('.sl-next').textContent = k===RULE_SLIDES.length-1 ? '처음으로 ↺' : '다음 ▶';
+  };
+  el.querySelector('.sl-prev').onclick = ()=>go(k-1);
+  el.querySelector('.sl-next').onclick = ()=>go(k+1);
+  go(0);
+  return {go:n=>go(n), next:()=>go(k+1), prev:()=>go(k-1)};
+}

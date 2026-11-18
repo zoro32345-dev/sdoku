@@ -144,6 +144,7 @@
     <div class="seats" id="seats"></div>
     <div class="row">
       <button class="soft" id="btnCancel">방 닫기</button>
+      <button class="soft" id="btnHow" style="background:#fff6d8">📖 게임 방법</button>
       <button class="big" id="btnStart" disabled>시작!</button>
     </div>
   </div>
@@ -180,6 +181,14 @@
       <button class="soft" id="btnPeek">지도 보기</button>
       <button class="big" id="btnNew" style="margin-top:0">새 게임</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== 게임 방법 (TV로 설명) ===== -->
+<div class="overlay" id="howto" hidden>
+  <div style="display:flex;flex-direction:column;gap:14px;align-items:center">
+    <div id="howSlides"></div>
+    <button class="big" id="btnHowClose" style="width:min(420px,90vw)">설명 끝! 닫기</button>
   </div>
 </div>
 
@@ -371,12 +380,14 @@ function updateClock(){
   if(left<=0 && !finishing) finishGame(false);
 }
 // 피버 남은 시간, 황금 칸 만들기 (게임 중일 때 250ms마다 불림)
-let goldGoneAt = Date.now(), goldBusy = false, chanceBusy = false;
+let goldGoneAt = Date.now(), goldBusy = false, chanceBusy = false, lastShieldKey = '';
 const GOLD_EVERY = 60000;
 function playExtras(){
   if(!V || V.room.status!=='playing'){
     $('fever').hidden = true; $('btnFever').disabled = $('btnChance').disabled = true; $('btnFever').textContent = '⚡ 피버 타임'; return;
   }
+  V.skew = H.skew||0;
+  const sk = shieldKey(V); if(sk!==lastShieldKey){ lastShieldKey=sk; renderPlay(); }
   const fl = feverLeft(V, H.skew||0);
   $('fever').hidden = fl<=0; if(fl>0) $('feverT').textContent = fmtTime(fl);
   $('btnFever').disabled = fl>0; if(!chanceBusy) $('btnChance').disabled = false;
@@ -415,6 +426,16 @@ async function finishGame(ask){
   finishing = false;
 }
 $('btnFinish').onclick = ()=>finishGame(true);
+// 게임 방법: TV에 크게 띄워 설명 (← → 키로 넘기기)
+let howW = null;
+$('btnHow').onclick = ()=>{ if(!howW) howW = slidesWidget($('howSlides'), true); howW.go(0); $('howto').hidden = false; };
+$('btnHowClose').onclick = ()=>{ $('howto').hidden = true; };
+document.addEventListener('keydown', e=>{
+  if($('howto').hidden) return;
+  if(e.key==='ArrowRight' || e.key===' ') { e.preventDefault(); howW.next(); }
+  else if(e.key==='ArrowLeft') howW.prev();
+  else if(e.key==='Escape') $('howto').hidden = true;
+});
 $('btnOpen').onclick = async ()=>{
   if(V.room.base_open) return;
   if(!confirm('본진 공격을 시작할까요?\n모든 판이 새 문제로 바뀌고, 본진에도 빈칸이 생겨 빼앗을 수 있어요. (되돌릴 수 없어요)')) return;
@@ -482,6 +503,7 @@ function onRoom(r){
   V.room.status = r.status; if(r.started_at) V.room.started_at = r.started_at; V.room.ends_at = r.ends_at ?? V.room.ends_at;
   if(before!==r.status){ copyRoomExtra(V, r); route(); return; }
   const oldGold = V.room.gold_cell, oldGolds = V.room.golds||0, oldFever = V.room.fever_until;
+  const oldFalls = V.room.falls||0, oldRetakes = V.room.retakes||0, oldUsed = (V.room.shield_used||[]).slice();
   copyRoomExtra(V, r);
   if(r.golds!==undefined && r.golds>oldGolds){ bigBanner('✨ 황금 칸 등장!'); addFeed('✨ 황금 칸 등장! 누구나 풀 수 있어요'); }
   if(oldGold!=null && r.gold_cell===null && r.gold_by_num!=null){
@@ -489,6 +511,12 @@ function onRoom(r){
     goldGoneAt = Date.now();
   }
   if(r.fever_until && r.fever_until!==oldFever && feverLeft(V, H.skew||0)>0){ bigBanner('⚡ 피버 타임!'); addFeed('⚡ 피버 타임! 1분 동안 틀려도 안 쉬어요'); }
+  if(r.falls!==undefined && r.falls>oldFalls){
+    bigBanner(`👑 ${r.last_fall_num}번 본진 함락!`);
+    addFeed(`👑 ${r.last_fall_num}번${V.team?` (${nm(r.last_fall_by)})`:''}이 ${nm(r.last_fall_victim)} 본진을 함락! 9칸 모두 차지`);
+  }
+  if(r.retakes!==undefined && r.retakes>oldRetakes){ bigBanner('🏰 본진 탈환!'); addFeed(`🏰 ${nm(r.last_retake)}이 본진을 되찾았어요!`); }
+  (r.shield_used||[]).forEach((u,q)=>{ if(u && !oldUsed[q]) addFeed(`🛡️ ${nm(q)} 본진 방패! 30초 동안 못 빼앗아요`); });
   if(!$('play').hidden) renderPlay();
   const opened = r.base_open!==undefined && !!r.base_open && !beforeOpen;
   const refreshed = r.refreshes!==undefined && r.refreshes>beforeRef;

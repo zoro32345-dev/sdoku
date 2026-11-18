@@ -94,6 +94,9 @@
       <li>🌟 금색 황금 칸은 누구나 풀 수 있어요. 맞히면 둘레 8칸까지 내 땅!</li>
       <li>⚡ 피버 타임에는 틀려도 쉬지 않아요.</li>
       <li>🎟️ 역전 찬스를 받으면 아무 빈칸이나 한 번 풀 수 있어요.</li>
+      <li>🛡️ 본진 공격 중에는 방패를 한 번 쓸 수 있어요. 30초 동안 내 본진을 못 빼앗아요.</li>
+      <li>👑 친구 본진의 빈칸을 모두 빼앗으면 본진 함락! 9칸이 모두 내 땅이 돼요.</li>
+      <li>🏰 본진을 빼앗겨도 탈락은 없어요. 역전 찬스 2장으로 되찾아요!</li>
     </ul>
   </div>
 </div>
@@ -104,6 +107,8 @@
   <p class="wait-msg">들어왔어요!<br>선생님이 시작하면 게임이 열려요<span class="dots"></span></p>
   <p class="mini">아래 지도에서 번호표가 붙은 줄무늬 칸이 내 본진이에요.</p>
   <div class="board" id="waitBoard"></div>
+  <h2 style="font-weight:normal;margin:22px 0 8px">📖 기다리는 동안 게임 방법을 익혀요</h2>
+  <div id="waitSlides"></div>
   <p style="margin-top:18px"><button class="soft" id="btnLeave">다른 번호로 들어가기</button></p>
 </div>
 
@@ -116,6 +121,7 @@
   </div>
   <div class="side">
     <div class="bar"><span class="who" id="who"></span><span class="stat" id="stat"></span><span class="time" id="time">0:00</span></div>
+    <div class="basebox" id="baseBox" hidden><span class="hp" id="baseHp"></span><button id="btnShield">🛡️ 방패 30초</button></div>
     <p class="hint" id="hint"></p>
     <div class="pad off" id="pad"><div class="cool" id="cool" hidden><span>틀렸어요! 잠깐 쉬어요</span><b id="coolN">5</b></div></div>
     <div class="live" id="mini"></div>
@@ -211,7 +217,7 @@ async function enterRoom(){
   const room = await fetchRoom(P.room_id);
   if(!room){ leave('방이 닫혔어요'); return; }
   V = makeView(room); me = P.team ?? (P.num-1); sel=-1;
-  skew = await measureSkew();
+  skew = await measureSkew(); V.skew = skew;
   (await fetchClaims(P.room_id)).forEach(cl=>applyClaim(V,cl));
   players = await fetchPlayers(P.room_id);
   document.documentElement.style.setProperty('--cur', V.colors[me].main);
@@ -226,10 +232,12 @@ function route(){
 }
 
 /* ===== 2. 기다리기 ===== */
+let waitW = null;
 function showWait(){
   show('wait');
   const b=$('meBadge'); b.style.background=V.colors[me].main; b.textContent=myName();
   buildBoard($('waitBoard'), V, null); renderBoard($('waitBoard'), V);
+  if(!waitW) waitW = slidesWidget($('waitSlides'));
   $('waitBoard').style.width = V.K>1 ? 'min(94vw,520px)' : 'min(92vw,420px)';
 }
 
@@ -300,6 +308,7 @@ let moves = {cells:new Set(), para:false}, wasPara = false;
 function render(){
   moves = movesFor(V, me, myTickets());
   $('zGold').hidden = !(playing() && goldAlive(V));
+  renderBaseBox();
   if(sel>=0 && !moves.cells.has(sel)) sel=-1;   // 다른 친구가 먼저 가져간 칸이면 선택 풀기
   if(playing() && moves.para && !wasPara) toast('🪂 둘 곳이 없어요! 낙하산 발동 — 아무 빈칸이나 골라요', 2600);
   wasPara = playing() && moves.para;
@@ -335,6 +344,8 @@ async function answer(d){
       applyClaim(V, {cell, player:me, value:d, prev_owner:res.prev, solved:true});
       render(); popCell($('board'), cell);
       if(res.refreshed){ toast('🔄 9×9 판 완성! 숫자가 바뀐 새 문제가 나와요', 2400); resync(); }
+      else if(res.fall){ toast('👑 본진 함락! 9칸이 모두 내 땅!', 2600); resync(); }
+      else if(res.retake){ toast('🏰 본진 탈환! 다시 지켜요', 2200); }
       else if(res.reblank){ toast('✨ 3×3을 다 채웠어요! 다시 빈칸이 돼요', 2000); resync(); }
       else toast(res.kind==='gold' ? `🌟 황금 칸 성공! 둘레 ${res.got}칸까지 내 땅!` : res.kind==='ticket' ? '🎟️ 역전 찬스 성공! 여기서 다시 넓혀요' : res.kind==='para' ? '🪂 낙하산 착륙 성공! 여기서 다시 넓혀요' : res.kind==='def' ? '🛡️ 수비 성공!' : res.kind==='neutral' ? '🚩 빈 땅을 차지했어요!' : `⚔️ ${nm(res.prev)} 땅을 빼앗았어요!`);
       break;
@@ -346,6 +357,8 @@ async function answer(d){
       startCool(res.wait||5); break;
     case 'taken':
       sel=-1; toast('아깝다! 다른 친구가 먼저 맞혔어요'); resync(); break;
+    case 'shielded':
+      sel=-1; toast('🛡️ 방패 중인 본진이에요! 잠시 뒤에 다시'); render(); break;
     case 'illegal':
       sel=-1; toast('이 칸은 지금 고를 수 없어요'); resync(); break;
     case 'bad_player':
@@ -399,14 +412,44 @@ $('btnPeek').onclick = ()=>{ $('end').hidden=true; setTimeout(()=>{ if(V && V.ro
 let renderQueued=false;
 function onClaim(cl){
   if(!V || !applyClaim(V, cl)) return;
+  if(V.room.base_open && playing() && V.base[cl.cell] && V.room.init_owner[cl.cell]===me && cl.player!==me) baseAlarm();
   if(cl.solved===false){
     if(!renderQueued){ renderQueued=true; requestAnimationFrame(()=>{ renderQueued=false; if(!$('play').hidden) render(); }); }
     return;
   }
   if(!$('play').hidden){
     render(); popCell($('board'), cl.cell);
-    if(cl.prev_owner===me && cl.player!==me) toast(`😱 ${nm(cl.player)}에게 ${V.team?'우리 모둠 ':''}땅을 빼앗겼어요!`);
+    if(cl.prev_owner===me && cl.player!==me && !(V.base[cl.cell] && V.room.base_open)) toast(`😱 ${nm(cl.player)}에게 ${V.team?'우리 모둠 ':''}땅을 빼앗겼어요!`);
   } else if(!$('wait').hidden) renderBoard($('waitBoard'), V);
+}
+/* ===== 본진 지키기 ===== */
+function renderBaseBox(){
+  const on = playing() && !!V.room.base_open;
+  $('baseBox').hidden = !on; if(!on) return;
+  const hp = baseHp(V, me), fallen = !!(V.room.fallen && V.room.fallen[me]);
+  $('baseHp').textContent = fallen ? '🏚️ 본진 함락! 되찾아요' : `🏰 ${V.team?'우리 ':'내 '}본진 ❤️ ${hp.mine}/${hp.total}`;
+  $('baseHp').classList.toggle('low', fallen || hp.mine <= hp.total/2);
+  const used = !!(V.room.shield_used && V.room.shield_used[me]), left = shieldLeft(V, me);
+  const b = $('btnShield');
+  b.classList.toggle('on', left>0);
+  b.disabled = used || shieldBusy;
+  b.textContent = left>0 ? `🛡️ 방패 중 ${Math.ceil(left)}초` : used ? '🛡️ 방패 사용함' : '🛡️ 방패 30초';
+}
+let shieldBusy=false, lastShieldKey='', lastAlarm=0;
+$('btnShield').onclick = async ()=>{
+  if(shieldBusy) return; shieldBusy=true; renderBaseBox();
+  try{
+    const r = await call('sudoku_shield', {p_room:P.room_id, p_num:P.num, p_token:P.token});
+    if(r.r==='ok'){ toast(`🛡️ 방패! 30초 동안 ${V.team?'우리 모둠':'내'} 본진을 지켜요`, 2200); await resync(); }
+    else if(r.r==='used') toast(V.team ? '우리 모둠이 이미 방패를 썼어요' : '방패는 한 번만 쓸 수 있어요');
+    else toast('지금은 방패를 쓸 수 없어요');
+  }catch(e){ toast('인터넷 연결을 확인해 주세요'); }
+  shieldBusy=false; renderBaseBox();
+};
+function baseAlarm(){
+  if(Date.now()-lastAlarm < 4000) return; lastAlarm=Date.now();
+  toast(`🚨 ${V.team?'우리 모둠 ':''}본진이 공격받고 있어요! 🏠 버튼으로 달려가요`, 2400);
+  const a=document.createElement('div'); a.className='alarm'; document.body.appendChild(a); setTimeout(()=>a.remove(), 1600);
 }
 const myTickets = () => (players.find(x=>x.num===P?.num)||{}).tickets||0;
 function onPlayer(p){
@@ -419,6 +462,10 @@ function onPlayer(p){
 function updateFever(){
   const fl = V && playing() ? feverLeft(V, skew) : 0;
   $('fever').hidden = fl<=0; if(fl>0) $('feverT').textContent = fmtTime(fl);
+  if(V && playing() && V.room.base_open && !$('play').hidden){
+    const k = shieldKey(V);
+    if(k!==lastShieldKey){ lastShieldKey=k; render(); } else renderBaseBox();
+  }
 }
 function onRoom(r){
   const before=V.room.status, beforeRef=V.room.refreshes||0, beforeOpen=!!V.room.base_open, beforeRb=V.room.reblanks||0;
@@ -427,13 +474,18 @@ function onRoom(r){
     if(r.status==='playing') toast('시작! 점선 칸을 골라요', 2200);
     copyRoomExtra(V, r); route(); return;
   }
-  const oldGold=V.room.gold_cell, oldGolds=V.room.golds||0, oldFever=V.room.fever_until;
+  const oldGold=V.room.gold_cell, oldGolds=V.room.golds||0, oldFever=V.room.fever_until, oldFalls=V.room.falls||0, oldRetakes=V.room.retakes||0;
   copyRoomExtra(V, r);
   if(!$('play').hidden){
     if(r.golds!==undefined && r.golds>oldGolds) toast('🌟 황금 칸 등장! 누구나 풀 수 있어요 · 🌟 버튼을 눌러 찾아가요', 3000);
     else if(oldGold!=null && r.gold_cell===null && r.gold_by_num!=null && r.gold_by_num!==P.num) toast(`🌟 ${r.gold_by_num}번이 황금 칸을 차지했어요!`, 2200);
     if(r.fever_until && r.fever_until!==oldFever && feverLeft(V, skew)>0) toast('⚡ 피버 타임! 1분 동안 틀려도 안 쉬어요', 2600);
     if(r.fever_until && r.fever_until!==oldFever && Date.now()<coolUntil){ coolUntil=0; }
+    if(r.falls!==undefined && r.falls>oldFalls){
+      if(r.last_fall_victim===me) toast(`😱 ${V.team?'우리 모둠 ':''}본진이 함락됐어요! 🎟️ 역전 찬스 2장으로 되찾아요!`, 3500);
+      else if(r.last_fall_num!==P.num) toast(`👑 ${r.last_fall_num}번이 ${nm(r.last_fall_victim)} 본진을 함락!`, 2400);
+    }
+    if(r.retakes!==undefined && r.retakes>oldRetakes && r.last_retake!==me) toast(`🏰 ${nm(r.last_retake)} 본진 탈환!`, 2000);
     render();
   }
   const opened = r.base_open!==undefined && !!r.base_open && !beforeOpen;
