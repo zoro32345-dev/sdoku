@@ -72,6 +72,7 @@
   .load{border-radius:16px;padding:12px 16px;margin:0 0 12px;background:#eef7ee;border:2px solid #bcdcc3}
   .load b{display:block;font-size:21px;color:#2f6b38}
   .load small{display:block;font-size:17px;color:#5c7a62;margin-top:3px;line-height:1.5}
+  .load #loadMonth{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(0,0,0,.14)}
   .load.busy{background:#fff4e2;border-color:#e8b887}
   .load.busy b{color:#9a6418} .load.busy small{color:#8a6a3a}
   .load.full{background:#ffeaea;border-color:#efb0b0}
@@ -135,6 +136,7 @@
   <div class="load" id="loadBox" hidden>
     <b id="loadNow"></b>
     <small id="loadTip"></small>
+    <small id="loadMonth"></small>
   </div>
 
   <button class="big" id="btnCreate">방 만들기</button>
@@ -260,6 +262,9 @@ setN(cfg.n); setS(cfg.students);
    꽉 찬 줄 모르고 시작하면 아이들이 못 들어오니, 방 만들기 전에 보여 줍니다.
    30초마다 한 번만 물어봅니다(자주 물으면 그것도 요금이라). */
 const 필요한자리 = ()=> (cfg.mode==='team' ? cfg.students : cfg.n) + 1;
+// 이번 달 이 설정으로 몇 번 더 할 수 있나 (알림 수 = 푼 칸 x 붙은 사람 수)
+const 남은횟수 = ()=> !자리 ? null
+  : Math.max(0, Math.floor((자리.msgcap - 자리.used) / Math.max(1, Math.round(자리.cells * 필요한자리() * 1.2))));
 
 async function 자리보기(){
   try{
@@ -285,6 +290,14 @@ function 자리그리기(){
     : 남음 < 필요 + 20
       ? `자리 ${남음}개 남았어요. 우리 반은 들어갈 수 있지만 빠듯해요.`
       : `자리 ${남음}개 남았어요. 넉넉합니다.`;
+
+  // 이번 달 몫 — 한 판 값은 우리 반 인원에 따라 달라집니다
+  const 더할수있음 = 남은횟수();
+  const 쓴비율 = Math.min(100, Math.round(자리.used / 자리.msgcap * 100));
+  $('loadMonth').textContent =
+    `📅 이번 달 ${자리.played}번 했어요 (쓴 양 ${쓴비율}%) · 우리 반 ${필요-1}명이면 ${더할수있음}번 더 할 수 있어요`;
+  if(더할수있음 < 10) box.classList.add('full');
+  else if(더할수있음 < 30 && !box.classList.contains('full')) box.classList.add('busy');
 }
 
 자리보기();
@@ -292,11 +305,20 @@ setInterval(()=>{ if(!$('setup').hidden) 자리보기(); }, 30000);
 
 $('btnCreate').onclick = async ()=>{
   await 자리보기();                       // 눌렀을 때의 자리로 한 번 더 봅니다
-  if(자리 && 자리.left < 필요한자리()
-     && !confirm(`지금 자리가 ${자리.left}개뿐이에요.
-우리 반 ${필요한자리()-1}명이 다 못 들어올 수 있어요.
+  if(자리){
+    const 모자란자리 = 자리.left < 필요한자리();
+    const 모자란횟수 = 남은횟수() < 3;
+    if(모자란자리 || 모자란횟수){
+      const 까닭 = 모자란자리
+        ? `지금 자리가 ${자리.left}개뿐이에요.
+우리 반 ${필요한자리()-1}명이 다 못 들어올 수 있어요.`
+        : `이번 달 할 수 있는 횟수가 ${남은횟수()}번밖에 안 남았어요.
+다음 달 1일이면 다시 채워집니다.`;
+      if(!confirm(`${까닭}
 
 그래도 방을 여시겠어요?`)) return;
+    }
+  }
   const btn=$('btnCreate'); btn.disabled=true; $('setupErr').textContent='';
   btn.textContent='문제를 만드는 중…';
   await new Promise(r=>setTimeout(r,30));
