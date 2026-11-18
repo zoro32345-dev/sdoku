@@ -483,6 +483,7 @@ function newGame(){
 let renderQueued=false;
 function onClaim(cl){
   if(!V || !applyClaim(V, cl)) return;
+  countClaimScore(players, cl);
   if($('play').hidden) return;
   if(cl.solved===false){
     // 새 문제로 바뀌는 칸들: 한꺼번에 오니 한 번만 다시 그린다

@@ -405,8 +405,21 @@ async function fetchClaims(roomId){
   const { data, error } = await sb.from('sudoku_claims').select('cell,player,prev_owner,value,by_num,solved,created_at').eq('room_id', roomId).order('created_at');
   if(error) throw error; return data;
 }
+// 점수(공격·수비)는 알림을 아끼려고 sudoku_tokens 에 쌓아 둡니다(010).
+// 그 표에는 입장 열쇠도 들어 있어 직접 읽으면 안 되므로, 점수만 골라 주는 함수를 씁니다.
+// 칸을 맞혔다는 알림만 보고 그 사람 점수를 올립니다.
+// 서버는 이제 점수 알림을 따로 보내지 않습니다(010). 알림이 절반으로 줄었어요.
+// 혹시 어긋나도 30초마다 서버 값으로 맞춰집니다.
+function countClaimScore(players, cl){
+  if(!players || !cl || cl.solved === false || cl.by_num == null) return;
+  const pl = players.find(x => x.num === cl.by_num);
+  if(!pl) return;
+  if(cl.prev_owner === cl.player) pl.def = (pl.def||0) + 1;
+  else pl.atk = (pl.atk||0) + 1;
+}
+
 async function fetchPlayers(roomId){
-  const { data, error } = await sb.from('sudoku_players').select('num,team,atk,def,miss,para,boxes,golds,tickets,conquers,joined_at').eq('room_id', roomId).order('num');
+  const { data, error } = await sb.rpc('sudoku_players_view', { p_room: roomId });
   if(error) throw error; return data;
 }
 
