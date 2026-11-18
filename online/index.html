@@ -30,7 +30,13 @@
 
   /* 게임 */
   #play{display:flex;gap:16px;padding:10px;justify-content:center;align-items:center;min-height:100vh}
-  #play .board{width:min(94vh,62vw)}
+  .zwrap{position:relative;width:min(94vh,62vw);flex-shrink:0}
+  .zview{width:100%;aspect-ratio:1;overflow:auto;border-radius:12px;touch-action:pan-x pan-y;overscroll-behavior:contain;scrollbar-width:thin}
+  #play .board{width:100%}
+  .zbtns{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px;z-index:5}
+  .zbtns button{width:54px;height:54px;font-size:30px;line-height:1;border-radius:50%;background:rgba(255,255,255,.92);color:var(--ink);box-shadow:0 3px 0 rgba(0,0,0,.25)}
+  .zbtns button:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+  .zlv{position:absolute;left:8px;bottom:8px;z-index:5;background:rgba(43,43,43,.75);color:#fff;font-size:16px;padding:3px 10px;border-radius:999px;pointer-events:none}
   .side{width:min(380px,34vw);display:flex;flex-direction:column;gap:10px}
   .bar{display:flex;align-items:center;gap:10px;border-radius:16px;padding:10px 14px;color:#fff;background:var(--cur)}
   .bar .who{font-size:28px;flex:1;white-space:nowrap}
@@ -48,7 +54,7 @@
 
   @media (max-width:900px), (orientation:portrait){
     #play{flex-direction:column;justify-content:flex-start;gap:8px}
-    #play .board{width:min(98vw,64vh)}
+    .zwrap{width:min(98vw,64vh)}
     .side{width:min(98vw,640px)}
     .pad{grid-template-columns:repeat(9,1fr);gap:5px}
     .pad button{aspect-ratio:auto;padding:14px 0;font-size:28px}
@@ -99,7 +105,11 @@
 
 <!-- ===== 3. 게임 ===== -->
 <div id="play" hidden>
-  <div class="board" id="board"></div>
+  <div class="zwrap">
+    <div class="zview" id="zview"><div class="board" id="board"></div></div>
+    <div class="zbtns"><button id="zIn" title="크게">＋</button><button id="zOut" title="작게">－</button><button id="zHome" title="내 본진으로" style="font-size:26px">🏠</button></div>
+    <span class="zlv" id="zlv"></span>
+  </div>
   <div class="side">
     <div class="bar"><span class="who" id="who"></span><span class="stat" id="stat"></span><span class="time" id="time">0:00</span></div>
     <p class="hint" id="hint"></p>
@@ -224,7 +234,52 @@ function showPlay(){
   buildBoard($('board'), V, pick);
   buildPad();
   render();
+  initZoom();
   clearInterval(tick); tick=setInterval(updateClock, 250); updateClock();
+}
+/* ===== 지도 확대·축소 =====
+   ＋/－ 버튼, 두 손가락 벌리기, PC는 Ctrl+휠. 판 너비만 키우고 보기 창(zview)을 밀어서 본다. */
+let zoom=1, zoomReady=false;
+const zMax = () => Math.max(2, V.W/6);            // 한 화면에 최소 6칸 정도까지 크게
+function setZoom(z, fx, fy){
+  const vw=$('zview'); z=Math.min(zMax(), Math.max(1, z));
+  if(fx==null){ fx=vw.clientWidth/2; fy=vw.clientHeight/2; }
+  const ox=(vw.scrollLeft+fx)/(vw.scrollWidth||1), oy=(vw.scrollTop+fy)/(vw.scrollHeight||1);
+  zoom=z; $('board').style.width=(z*100)+'%';
+  vw.scrollLeft = ox*vw.scrollWidth - fx; vw.scrollTop = oy*vw.scrollHeight - fy;
+  $('zlv').textContent = z>1.01 ? `🔍 ${Math.round(z*10)/10}배` : '';
+  $('zOut').disabled = z<=1.01; $('zIn').disabled = z>=zMax()-0.01;
+}
+function goHome(){                                   // 내 본진이 가운데 오게
+  const vw=$('zview'), W=V.W; let sum=0, cnt=0, sr=0;
+  for(let i=0;i<V.C;i++) if(V.base[i] && V.room.init_owner[i]===me){ sr+=Math.floor(i/W); sum+=i%W; cnt++; }
+  if(!cnt) return;
+  const cs=vw.scrollWidth/W;
+  vw.scrollLeft = (sum/cnt+.5)*cs - vw.clientWidth/2;
+  vw.scrollTop  = (sr/cnt+.5)*cs - vw.clientHeight/2;
+}
+function initZoom(){
+  if(zoomReady) return; zoomReady=true;
+  const vw=$('zview');
+  $('zIn').onclick=()=>setZoom(zoom*1.4);
+  $('zOut').onclick=()=>setZoom(zoom/1.4);
+  $('zHome').onclick=goHome;
+  let p0=null;
+  const mid=t=>{ const r=vw.getBoundingClientRect(); return [(t[0].clientX+t[1].clientX)/2-r.left,(t[0].clientY+t[1].clientY)/2-r.top]; };
+  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+  vw.addEventListener('touchstart',e=>{ if(e.touches.length===2) p0={d:dist(e.touches), z:zoom}; },{passive:true});
+  vw.addEventListener('touchmove',e=>{
+    if(e.touches.length!==2 || !p0) return;
+    e.preventDefault(); const [x,y]=mid(e.touches); setZoom(p0.z*dist(e.touches)/p0.d, x, y);
+  },{passive:false});
+  vw.addEventListener('touchend',e=>{ if(e.touches.length<2) p0=null; });
+  vw.addEventListener('wheel',e=>{
+    if(!e.ctrlKey) return; e.preventDefault();
+    const r=vw.getBoundingClientRect(); setZoom(zoom*(e.deltaY<0?1.15:1/1.15), e.clientX-r.left, e.clientY-r.top);
+  },{passive:false});
+  // 지도가 크면 처음부터 한 화면에 13칸쯤 보이게 확대하고 내 본진으로
+  setZoom(V.W>13 ? V.W/13 : 1);
+  requestAnimationFrame(goHome);
 }
 function buildPad(){
   const pad=$('pad'); [...pad.querySelectorAll('button')].forEach(b=>b.remove());
