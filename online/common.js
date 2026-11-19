@@ -410,6 +410,31 @@ async function fetchClaims(roomId){
 // 칸을 맞혔다는 알림만 보고 그 사람 점수를 올립니다.
 // 서버는 이제 점수 알림을 따로 보내지 않습니다(010). 알림이 절반으로 줄었어요.
 // 혹시 어긋나도 30초마다 서버 값으로 맞춰집니다.
+// 🚦 지금 몇 반이 하고 있나 — 첫 화면과 방 만들기 화면이 같이 씁니다 (011·012)
+async function 지금부하(){
+  try{ const { data, error } = await sb.rpc('sudoku_load'); if(error) throw error; return data; }
+  catch(e){ return null; }
+}
+
+// 그 숫자를 사람 말로 바꿔 줍니다. 인원수(선생님 포함)를 주면 그 반 기준으로 셉니다.
+function 부하글(자리, 필요){
+  if(!자리) return null;
+  const 남음 = 자리.left, 지금 = 자리.people, 방 = 자리.rooms;
+  const 빠듯 = 남음 < 필요 + 20, 모자람 = 남음 < 필요;
+  const 한판 = Math.max(1, Math.round(자리.cells * 필요 * 1.2));
+  const 더 = Math.max(0, Math.floor((자리.msgcap - 자리.used) / 한판));
+  const 쓴 = Math.min(100, Math.round(자리.used / 자리.msgcap * 100));
+  return {
+    꼴: 모자람 ? 'full' : 빠듯 ? 'busy' : '',
+    머리: 방 === 0 ? '🟢 지금 아무도 안 하고 있어요'
+      : `${모자람 ? '🔴' : 빠듯 ? '🟡' : '🟢'} 지금 ${방}개 반 ${지금}명이 하고 있어요`,
+    자리: 모자람 ? `자리가 ${남음}개뿐이라 ${필요-1}명이 다 못 들어와요. 5~10분 뒤에 다시 눌러 보세요.`
+      : 빠듯 ? `자리 ${남음}개 남았어요. 들어갈 수 있지만 빠듯해요.`
+      : `자리 ${남음}개 남았어요. 넉넉합니다.`,
+    더할수있음: 더, 쓴비율: 쓴, 한달: 자리.played,
+  };
+}
+
 function countClaimScore(players, cl){
   if(!players || !cl || cl.solved === false || cl.by_num == null) return;
   const pl = players.find(x => x.num === cl.by_num);

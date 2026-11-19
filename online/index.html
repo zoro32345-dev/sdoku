@@ -79,6 +79,11 @@
 <div id="home" hidden>
   <h1>👑 스도쿠<span>왕</span> 쟁탈전</h1>
   <p class="sub">스도쿠 빈칸을 맞혀 친구 땅을 빼앗는 실시간 대결</p>
+  <div class="load" id="homeLoad" hidden>
+    <b id="homeLoadNow"></b>
+    <small id="homeLoadTip"></small>
+    <small id="homeLoadMonth"></small>
+  </div>
   <div class="roles">
     <a class="role t" href="teacher.html"><span class="ri">👩‍🏫</span>선생님<small>방 만들고 TV에 띄우기</small></a>
     <button class="role s" id="btnStudent"><span class="ri">🙋</span>학생<small>입장 코드와 번호로 들어가기</small></button>
@@ -223,6 +228,24 @@ const forget = () => { try{ localStorage.removeItem(LS); }catch(e){} };
 const show = id => { ['home','join','wait','play'].forEach(x=>$(x).hidden = x!==id); const L=$('learn'); if(L) L.hidden = true; };
 $('btnStudent').onclick = ()=>{ show('join'); $('inCode').focus(); };
 $('btnHome').onclick = ()=>show('home');
+
+/* 🚦 첫 화면에 「지금 얼마나 쓰고 있나」 띄우기
+   들어오자마자 보이게 맨 위에 둡니다. 18명 반을 기준으로 셈해서 알려 줘요.
+   첫 화면에 머무는 동안만 1분에 한 번 물어봅니다. */
+const 기준인원 = 19;            // 학생 18명 + 선생님 화면 1
+async function 첫화면자리(){
+  const 글 = 부하글(await 지금부하(), 기준인원);
+  const box = $('homeLoad');
+  if(!글){ box.hidden = true; return; }
+  box.hidden = false;
+  box.className = 'load' + (글.꼴 ? ' ' + 글.꼴 : '');
+  $('homeLoadNow').textContent = 글.머리;
+  $('homeLoadTip').textContent = 글.자리;
+  $('homeLoadMonth').textContent =
+    `📅 이번 달 ${글.한달}번 했어요 (쓴 양 ${글.쓴비율}%) · 18명 반이면 ${글.더할수있음}번 더 할 수 있어요`;
+}
+첫화면자리();
+setInterval(()=>{ if(!$('home').hidden) 첫화면자리(); }, 60000);
 
 /* 🧩 스도쿠 연습 — 어디서 눌렀는지 기억했다가 그 화면으로 돌려 보냅니다 */
 Practice.붙이기();

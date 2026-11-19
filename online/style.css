@@ -209,3 +209,14 @@ h1 span{color:var(--red)}
 .pr-done p{font-size:20px;color:var(--muted);margin:0 0 18px;line-height:1.6}
 .pr-done .soft{margin-top:12px}
 @media (prefers-reduced-motion:reduce){ .pr-cell.shake{animation:none} }
+
+/* ===== 🚦 지금 몇 반이 하고 있나 (common.js 부하글) — 2026-11-19 =====
+   첫 화면(index)과 방 만들기 화면(teacher)이 같이 씁니다. */
+.load{border-radius:16px;padding:12px 16px;margin:0 0 14px;background:#eef7ee;border:2px solid #bcdcc3;text-align:left}
+.load b{display:block;font-size:21px;color:#2f6b38}
+.load small{display:block;font-size:17px;color:#5c7a62;margin-top:3px;line-height:1.5}
+.load #loadMonth,.load #homeLoadMonth{margin-top:7px;padding-top:7px;border-top:1px dashed rgba(0,0,0,.14)}
+.load.busy{background:#fff4e2;border-color:#e8b887}
+.load.busy b{color:#9a6418} .load.busy small{color:#8a6a3a}
+.load.full{background:#ffeaea;border-color:#efb0b0}
+.load.full b{color:#b4342f} .load.full small{color:#9a5450}
