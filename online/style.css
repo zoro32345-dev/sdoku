@@ -145,3 +145,64 @@ h1 span{color:var(--red)}
 .slides.big .sl-main ul{font-size:clamp(22px,2.6vw,34px);line-height:1.55}
 .slides.big .demo{width:clamp(180px,22vw,300px)}
 .slides.big .sl-nav button{font-size:24px;padding:14px 22px}
+
+/* ===== 🧩 스도쿠 연습 (practice.js) — 2026-11-19 ===== */
+#learn{max-width:560px;margin:0 auto;padding:20px 16px 40px}
+#learn h1{margin:0 0 4px}
+.pr-note{font-size:18px;color:var(--muted);margin:14px 0 16px;line-height:1.6}
+
+/* 규칙 세 줄 */
+.pr-rule{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px dashed var(--line)}
+.pr-rule:last-child{border-bottom:0}
+.pr-rule .ic{font-size:32px;line-height:1;flex-shrink:0}
+.pr-rule b{font-size:21px;font-weight:normal;flex-shrink:0;min-width:74px}
+.pr-rule small{font-size:17px;color:var(--muted);line-height:1.5}
+
+/* 어디서든 연습으로 들어가는 단추 */
+.pr-open{display:block;width:100%;margin:14px 0 0;padding:15px;font-size:21px;
+  background:#eef4ff;color:#2a5aa8;border:2px solid #bed3f5;box-shadow:0 4px 0 #cfdef7}
+.pr-open:active{transform:translateY(2px);box-shadow:0 2px 0 #cfdef7}
+.pr-open.sm{margin-top:10px;padding:12px;font-size:18px}
+
+/* 진행 줄 */
+.pr-head{display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 10px}
+.pr-head b{font-size:24px;font-weight:normal}
+.pr-head small{font-size:18px;color:var(--muted)}
+
+/* 말 걸어 주는 줄 */
+.pr-tip{min-height:52px;margin:0 0 12px;padding:11px 14px;border-radius:12px;
+  font-size:19px;line-height:1.5;background:#f3efe5;color:var(--ink)}
+.pr-tip.good{background:#e6f6ea;color:#1f7a2c}
+.pr-tip.bad{background:#ffeaea;color:#b4342f}
+.pr-tip.warn{background:#fff4e2;color:#8a6a18}
+
+/* 판 */
+.pr-grid{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:0;
+  background:var(--card);border-radius:10px;overflow:hidden;margin:0 auto;
+  max-width:min(92vw,460px);aspect-ratio:1}
+.pr-cell{border:1px solid #ded7ca;border-radius:0;background:var(--card);
+  font-family:inherit;font-size:clamp(20px,6vw,34px);color:#2a5aa8;padding:0;
+  display:flex;align-items:center;justify-content:center}
+.pr-cell.given{color:var(--ink);background:#f6f2e8}
+.pr-cell.sel{background:#fff6c9;box-shadow:inset 0 0 0 3px #e8c33a}
+.pr-cell.bt{border-top:4px solid var(--thick)}
+.pr-cell.bl{border-left:4px solid var(--thick)}
+.pr-cell.bb{border-bottom:4px solid var(--thick)}
+.pr-cell.br{border-right:4px solid var(--thick)}
+@keyframes prShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.pr-cell.shake{animation:prShake .3s}
+
+/* 숫자판 */
+.pr-pad{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:9px;
+  max-width:min(92vw,460px);margin:16px auto 0}
+.pr-num{padding:16px 0;font-size:26px;background:var(--card);color:var(--ink);
+  box-shadow:0 4px 0 #ded7ca}
+.pr-num:active{transform:translateY(2px);box-shadow:0 2px 0 #ded7ca}
+.pr-num.del{font-size:18px;background:#efe9df;color:var(--muted)}
+
+/* 다 끝났을 때 */
+.pr-done{text-align:center}
+.pr-done .ic{font-size:64px;line-height:1;margin-bottom:6px}
+.pr-done p{font-size:20px;color:var(--muted);margin:0 0 18px;line-height:1.6}
+.pr-done .soft{margin-top:12px}
+@media (prefers-reduced-motion:reduce){ .pr-cell.shake{animation:none} }

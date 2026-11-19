@@ -83,6 +83,7 @@
     <a class="role t" href="teacher.html"><span class="ri">👩‍🏫</span>선생님<small>방 만들고 TV에 띄우기</small></a>
     <button class="role s" id="btnStudent"><span class="ri">🙋</span>학생<small>입장 코드와 번호로 들어가기</small></button>
   </div>
+  <button class="pr-open" id="btnLearnHome">🧩 스도쿠가 처음이에요 — 연습하기</button>
   <p class="muted" style="font-size:18px">선생님이 먼저 방을 만들면, 학생은 화면의 QR이나 입장 코드로 들어와요.</p>
 </div>
 
@@ -98,6 +99,7 @@
       <input id="inNum" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="번호"></label>
     <button class="big" id="btnJoin">들어가기</button>
     <p class="err" id="joinErr"></p>
+    <button class="pr-open sm" id="btnLearnJoin">🧩 스도쿠가 처음이에요 — 연습하기</button>
   </div>
   <div class="card" id="teamPick" hidden>
     <h2>모둠 대항전이에요! 내 모둠을 골라요</h2>
@@ -131,12 +133,48 @@
   <p class="wait-msg">들어왔어요!<br>선생님이 시작하면 게임이 열려요<span class="dots"></span></p>
   <p class="mini">아래 지도에서 번호표가 붙은 줄무늬 칸이 내 본진이에요.</p>
   <div class="board" id="waitBoard"></div>
+  <button class="pr-open" id="btnLearnWait">🧩 스도쿠가 처음이면 — 기다리는 동안 연습하기</button>
   <h2 style="font-weight:normal;margin:22px 0 8px">📖 기다리는 동안 게임 방법을 익혀요</h2>
   <div id="waitSlides"></div>
   <p style="margin-top:18px"><button class="soft" id="btnLeave">다른 번호로 들어가기</button></p>
 </div>
 
 <!-- ===== 3. 게임 ===== -->
+<!-- ===== 🧩 스도쿠 연습 (혼자 하기 · 서버 안 씀) ===== -->
+<div id="learn" hidden>
+  <button class="back" data-pr-close>← 돌아가기</button>
+
+  <div id="prIntro">
+    <h1>🧩 스도쿠 연습</h1>
+    <p class="sub">규칙은 딱 하나예요. 같은 숫자가 두 번 있으면 안 돼요</p>
+    <div class="card">
+      <div id="prRules"></div>
+      <p class="pr-note">작은 4×4 판부터 해 볼게요. 천천히 해도 괜찮아요.</p>
+      <button class="big" id="prGo">시작하기</button>
+    </div>
+  </div>
+
+  <div id="prPlay" hidden>
+    <div class="pr-head">
+      <b id="prStep"></b>
+      <small id="prLeft"></small>
+    </div>
+    <p class="pr-tip" id="prTip"></p>
+    <div class="pr-grid" id="prGrid"></div>
+    <div class="pr-pad" id="prPad"></div>
+  </div>
+
+  <div id="prDone" hidden>
+    <div class="card pr-done">
+      <div class="ic">🏆</div>
+      <h2>연습 끝!</h2>
+      <p id="prDoneMsg"></p>
+      <button class="big" data-pr-close>대결하러 가기</button>
+      <button class="soft" id="prAgain">한 번 더 연습하기</button>
+    </div>
+  </div>
+</div>
+
 <div id="play" hidden>
   <div class="zwrap">
     <div class="zview" id="zview"><div class="board" id="board"></div></div>
@@ -171,6 +209,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="common.js"></script>
+<script src="practice.js"></script>
 <script>
 /* ===== 상태 ===== */
 const LS = 'sudoku_player';   // {code, num, token, room_id} — 새로고침해도 다시 들어오게
@@ -181,9 +220,15 @@ let coolUntil = 0, busy = false;
 const save = () => { try{ localStorage.setItem(LS, JSON.stringify(P)); }catch(e){} };
 const load = () => { try{ return JSON.parse(localStorage.getItem(LS)); }catch(e){ return null; } };
 const forget = () => { try{ localStorage.removeItem(LS); }catch(e){} };
-const show = id => ['home','join','wait','play'].forEach(x=>$(x).hidden = x!==id);
+const show = id => { ['home','join','wait','play'].forEach(x=>$(x).hidden = x!==id); const L=$('learn'); if(L) L.hidden = true; };
 $('btnStudent').onclick = ()=>{ show('join'); $('inCode').focus(); };
 $('btnHome').onclick = ()=>show('home');
+
+/* 🧩 스도쿠 연습 — 어디서 눌렀는지 기억했다가 그 화면으로 돌려 보냅니다 */
+Practice.붙이기();
+$('btnLearnHome').onclick = ()=> Practice.열기(()=>show('home'));
+$('btnLearnJoin').onclick = ()=> Practice.열기(()=>{ show('join'); $('inCode').focus(); });
+$('btnLearnWait').onclick = ()=> Practice.열기(()=>show('wait'));
 
 /* ===== 1. 입장 ===== */
 // 주소에 ?code=1234 가 있으면 코드 칸을 채워 둔다
