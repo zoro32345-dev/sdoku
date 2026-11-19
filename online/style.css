@@ -184,6 +184,9 @@ h1 span{color:var(--red)}
   font-family:inherit;font-size:clamp(20px,6vw,34px);color:#2a5aa8;padding:0;
   display:flex;align-items:center;justify-content:center}
 .pr-cell.given{color:var(--ink);background:#f6f2e8}
+/* 이미 적힌 칸은 disabled 라서 button:disabled 의 흐리게(opacity .45)가 걸립니다.
+   그러면 그 칸이 그리는 굵은 네모 선까지 흐려져 선이 끊겨 보여요. (2026-11-19 고침) */
+.pr-cell:disabled{opacity:1;cursor:default}
 .pr-cell.sel{background:#fff6c9;box-shadow:inset 0 0 0 3px #e8c33a}
 .pr-cell.bt{border-top:4px solid var(--thick)}
 .pr-cell.bl{border-left:4px solid var(--thick)}
