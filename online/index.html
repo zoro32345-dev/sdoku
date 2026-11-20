@@ -4,12 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>스도쿠왕 쟁탈전</title>
+<link rel="icon" type="image/png" href="img/icon-64.png">
+<link rel="apple-touch-icon" href="img/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
   /* 첫 화면: 선생님/학생 고르기 */
-  #home{max-width:720px;margin:0 auto;padding:36px 16px 40px;text-align:center}
+  #home{max-width:980px;margin:0 auto;padding:16px 16px 40px;text-align:center}
+  .hero{display:block;width:auto;max-width:100%;max-height:52vh;height:auto;aspect-ratio:1402/785;border-radius:22px;box-shadow:0 8px 24px rgba(60,30,120,.25);margin:0 auto 16px;background:#e9e0f7}
   .roles{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:10px 0 18px}
   .role{display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 14px;border-radius:24px;color:#fff;font-size:30px;box-shadow:0 6px 0 rgba(0,0,0,.18);text-decoration:none;font-family:inherit}
   .role:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
@@ -77,8 +80,7 @@
 
 <!-- ===== 0. 첫 화면 ===== -->
 <div id="home" hidden>
-  <h1>👑 스도쿠<span>왕</span> 쟁탈전</h1>
-  <p class="sub">스도쿠 빈칸을 맞혀 친구 땅을 빼앗는 실시간 대결</p>
+  <img class="hero" src="img/hero.webp" alt="스도쿠왕 쟁탈전 · 실시간 스도쿠 땅따먹기 대결" width="1402" height="785">
   <div class="load" id="homeLoad" hidden>
     <b id="homeLoadNow"></b>
     <small id="homeLoadTip"></small>
