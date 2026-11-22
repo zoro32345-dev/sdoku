@@ -269,17 +269,20 @@ $('btnJoin').onclick = async ()=>{
   if(code.length!==4){ $('joinErr').textContent='입장 코드 4자리를 넣어 주세요'; return; }
   if(!num){ $('joinErr').textContent='내 번호를 넣어 주세요'; return; }
   $('btnJoin').disabled=true;
-  try{ await tryJoin(code, num, null, null); }
+  // 이 기기로 같은 방·같은 번호에 들어왔던 적이 있으면 그때 열쇠로 다시 들어간다 (튕긴 뒤 다시 입력해도 OK)
+  const saved = load();
+  const tok = saved && saved.code===code && saved.num===num ? saved.token : null;
+  try{ await tryJoin(code, num, null, tok); }
   finally{ $('btnJoin').disabled=false; }
 };
 async function tryJoin(code, num, team, token){
   let res;
   $('teamPick').hidden = true;
   try{ res = await call('sudoku_join', {p_code:code, p_num:num, p_team:team, p_token:token}); }
-  catch(e){ $('joinErr').textContent='인터넷 연결을 확인하고 다시 눌러 주세요'; return false; }
+  catch(e){ $('joinErr').textContent='인터넷 연결을 확인하고 다시 눌러 주세요'; return 'net'; }
   if(res.r==='no_room'){ $('joinErr').textContent='그런 방이 없어요. 코드를 다시 확인해요'; return false; }
   if(res.r==='bad_num'){ $('joinErr').textContent=`번호는 1번부터 ${res.n}번까지예요`; return false; }
-  if(res.r==='taken'){ $('joinErr').textContent=`${num}번은 이미 다른 기기로 들어와 있어요. 선생님께 말해 주세요`; return false; }
+  if(res.r==='taken'){ $('joinErr').textContent=`${num}번은 이미 다른 기기로 들어와 있어요. 선생님께 "${num}번 풀어 주세요" 하고 말한 뒤 다시 눌러요`; return false; }
   if(res.r==='need_team'){ showTeamPick(code, num, res.teams); return false; }
   P = {code, num, token:res.token, room_id:res.room_id, team:res.team}; save();
   await enterRoom();
@@ -295,7 +298,7 @@ function showTeamPick(code, num, teams){
     const b=e.target.closest('button'); if(!b) return;
     [...$('teamBtns').children].forEach(x=>x.disabled=true);
     const ok = await tryJoin(code, num, Number(b.dataset.t), null);
-    if(!ok) [...$('teamBtns').children].forEach(x=>x.disabled=false);
+    if(ok!==true) [...$('teamBtns').children].forEach(x=>x.disabled=false);
   };
 }
 const myName = () => V && V.team ? `${me+1}모둠 · ${P.num}번` : `${P.num}번`;
@@ -635,7 +638,8 @@ document.addEventListener('keydown', e=>{
   if(saved && (!qCode || qCode===saved.code)){
     $('inCode').value=saved.code; $('inNum').value=saved.num;
     const ok = await tryJoin(saved.code, saved.num, null, saved.token);
-    if(ok) return;
+    if(ok===true) return;
+    if(ok==='net'){ show('join'); return; }   // 인터넷이 잠깐 끊긴 것: 열쇠는 지우지 않고 '들어가기'를 다시 누르게
     forget();
   }
   show(qCode ? 'join' : 'home');   // QR로 온 학생은 바로 입장 화면, 아니면 선생님/학생 고르기
